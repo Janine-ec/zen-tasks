@@ -1,0 +1,162 @@
+{
+  "name": "01 - Add Task (Conversational)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "add-task",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-add",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a helpful task-capture assistant. Your job is to understand what the user wants to add to their task list and gather enough information to create a well-structured task.\n\nConversation so far:\n{{ JSON.stringify($json.body.history || []) }}\n\nUser's latest message:\n\"{{ $json.body.message }}\"\n\nFor each task mentioned, you need to determine:\n- title: A clear, concise task title\n- description: Any extra detail (or null)\n- urgency: 1-5 scale (1=not urgent at all, 5=critical/time-sensitive)\n- importance: 1-5 scale (1=trivial, 5=critical impact)\n- estimated_minutes: How long it might take (or null)\n- due_date: ISO 8601 if mentioned (or null)\n- location: Where it must be done, if specific (or null)\n- tags: Relevant short tags as an array\n- energy_level: \"low\", \"medium\", or \"high\" — how much focus/energy it needs\n- can_be_split: true/false — can it be done in chunks?\n- recurrence: e.g. \"weekly\", \"daily\", or null\n- depends_on_title: Title of another task this depends on, if mentioned (or null)\n\nRules:\n1. If the user's input is clear enough to create a task, respond with JSON:\n   {\"action\": \"create\", \"reply\": \"<friendly confirmation message>\", \"tasks\": [<task objects>]}\n2. If you need to ask a clarifying question (e.g. urgency is unclear, or you want to confirm details), respond with JSON:\n   {\"action\": \"clarify\", \"reply\": \"<your question to the user>\"}\n3. The user may mention multiple tasks at once — capture all of them.\n4. Be conversational and friendly but concise.\n5. Don't ask too many questions — make reasonable assumptions and only ask if something is genuinely ambiguous.\n6. If urgency/importance aren't mentioned, make a reasonable estimate based on context.\n\nRespond with ONLY valid JSON, no markdown fences.",
+        "options": {}
+      },
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawMessage = $('Webhook').first().json.body.message;\nconst userId = $('Webhook').first().json.body.user_id;\nconst history = $('Webhook').first().json.body.history || [];\n\nlet parsed;\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(text);\n} catch (e) {\n  // AI output wasn't valid JSON — treat as clarifying reply\n  const fallbackText = $input.first().json.output || $input.first().json.text || 'Could you tell me more about that task?';\n  return [{ json: { replies: [fallbackText], done: false } }];\n}\n\nif (parsed.action === 'clarify') {\n  return [{ json: { replies: [parsed.reply], done: false } }];\n}\n\n// Action is 'create' — prepare tasks for insertion\nconst tasks = (parsed.tasks || [parsed]).map(t => ({\n  user_id: userId,\n  raw_input: rawMessage,\n  title: t.title || rawMessage,\n  description: t.description || null,\n  urgency: Math.max(1, Math.min(5, parseInt(t.urgency) || 3)),\n  importance: Math.max(1, Math.min(5, parseInt(t.importance) || 3)),\n  estimated_minutes: t.estimated_minutes ? parseInt(t.estimated_minutes) : null,\n  due_date: t.due_date || null,\n  location: t.location || null,\n  tags: Array.isArray(t.tags) ? t.tags : [],\n  energy_level: ['low','medium','high'].includes(t.energy_level) ? t.energy_level : 'medium',\n  can_be_split: !!t.can_be_split,\n  recurrence: t.recurrence || null,\n  ai_conversation: history,\n  status: 'pending'\n}));\n\n// Build per-task confirmation replies\nconst replies = parsed.replies || (parsed.reply ? [parsed.reply] : tasks.map(t => `Added: ${t.title}`));\n\nreturn [{ json: { replies, done: true, tasks } }];"
+      },
+      "id": "code-parse",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.done }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-done",
+      "name": "Task Created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split tasks array into individual items for Supabase insert\nconst tasks = $input.first().json.tasks || [];\nreturn tasks.map(t => ({ json: t }));"
+      },
+      "id": "code-split",
+      "name": "Split Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 220]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "tasks",
+        "columns": "user_id,raw_input,title,description,urgency,importance,estimated_minutes,due_date,location,tags,energy_level,can_be_split,recurrence,ai_conversation,status",
+        "options": {}
+      },
+      "id": "supabase-insert",
+      "name": "Supabase Insert",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1320, 220],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ replies: $('Parse AI Response').first().json.replies, done: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "respond-done",
+      "name": "Respond Done",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1540, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ replies: $('Parse AI Response').first().json.replies, done: false }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "respond-clarify",
+      "name": "Respond Clarify",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1100, 420]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "AI Agent", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [{ "node": "Parse AI Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [{ "node": "Task Created?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Task Created?": {
+      "main": [
+        [{ "node": "Split Tasks", "type": "main", "index": 0 }],
+        [{ "node": "Respond Clarify", "type": "main", "index": 0 }]
+      ]
+    },
+    "Split Tasks": {
+      "main": [
+        [{ "node": "Supabase Insert", "type": "main", "index": 0 }]
+      ]
+    },
+    "Supabase Insert": {
+      "main": [
+        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "task-app" }]
+}

@@ -1,0 +1,317 @@
+{
+  "name": "03 - Nudge Cron",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 8
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 8
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 9
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 9
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 10
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 10
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 11
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 11
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 12
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 12
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 13
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 13
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 14
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 14
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 15
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 15
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 16
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 16
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 17
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 17
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 18
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 18
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 19
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 19
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 20
+            },
+            {
+              "triggerAtMinute": 30,
+              "triggerAtHour": 20
+            },
+            {
+              "triggerAtMinute": 0,
+              "triggerAtHour": 21
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Cron",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "schema": "public",
+        "table": "users",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "telegram_chat_id=not.is.null"
+      },
+      "id": "fetch-users",
+      "name": "Fetch Users",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [440, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/calendar/v3/freeBusy",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"timeMin\": \"{{ new Date().toISOString() }}\",\n  \"timeMax\": \"{{ new Date(Date.now() + 2*60*60*1000).toISOString() }}\",\n  \"items\": [{\"id\": \"primary\"}]\n}",
+        "options": {}
+      },
+      "id": "google-freebusy",
+      "name": "Google Calendar FreeBusy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "GOOGLE_CALENDAR_CREDENTIAL_ID",
+          "name": "Google Calendar"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find free slots >= 15 min in the next 2 hours\nconst user = $('Fetch Users').first().json;\nconst calData = $input.first().json;\nconst busySlots = calData?.calendars?.primary?.busy || [];\n\nconst now = new Date();\nconst windowEnd = new Date(now.getTime() + 2 * 60 * 60 * 1000);\n\n// Build free slots by subtracting busy from window\nconst freeSlots = [];\nlet cursor = now;\n\nfor (const busy of busySlots) {\n  const busyStart = new Date(busy.start);\n  const busyEnd = new Date(busy.end);\n\n  if (cursor < busyStart) {\n    const durationMin = (busyStart - cursor) / 60000;\n    if (durationMin >= 15) {\n      freeSlots.push({\n        start: cursor.toISOString(),\n        end: busyStart.toISOString(),\n        duration_minutes: Math.round(durationMin)\n      });\n    }\n  }\n  if (busyEnd > cursor) cursor = busyEnd;\n}\n\n// Remaining time after last busy block\nif (cursor < windowEnd) {\n  const durationMin = (windowEnd - cursor) / 60000;\n  if (durationMin >= 15) {\n    freeSlots.push({\n      start: cursor.toISOString(),\n      end: windowEnd.toISOString(),\n      duration_minutes: Math.round(durationMin)\n    });\n  }\n}\n\nif (freeSlots.length === 0) {\n  return []; // No free time, stop here\n}\n\nreturn [{\n  json: {\n    user_id: user.id,\n    telegram_chat_id: user.telegram_chat_id,\n    timezone: user.timezone,\n    free_slots: freeSlots\n  }\n}];"
+      },
+      "id": "code-free-slots",
+      "name": "Find Free Slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "schema": "public",
+        "table": "tasks",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "=user_id=eq.{{ $json.user_id }}&status=in.(pending,in_progress)&or=(snoozed_until.is.null,snoozed_until.lt.{{ new Date().toISOString() }})&order=urgency.desc,importance.desc,created_at.asc"
+      },
+      "id": "fetch-active-tasks",
+      "name": "Fetch Active Tasks",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1100, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine free slots + tasks for AI matching\nconst freeSlotData = $('Find Free Slots').first().json;\nconst tasks = $input.all().map(item => item.json);\n\nif (tasks.length === 0) return []; // No tasks, stop\n\nreturn [{\n  json: {\n    ...freeSlotData,\n    tasks: tasks\n  }\n}];"
+      },
+      "id": "code-combine",
+      "name": "Combine Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a productivity assistant. Given a user's free calendar slots and their active tasks, pick the single best task to suggest for the nearest free slot.\n\nFree slots:\n{{ JSON.stringify($json.free_slots) }}\n\nActive tasks:\n{{ JSON.stringify($json.tasks.map(t => ({ id: t.id, title: t.title, urgency: t.urgency, importance: t.importance, due_date: t.due_date, estimated_minutes: t.estimated_minutes, location: t.location, energy_level: t.energy_level, depends_on: t.depends_on }))) }}\n\nRules:\n- Use Eisenhower matrix: urgent+important first, then important, then urgent\n- Prefer tasks with approaching due dates\n- Match task estimated_minutes to slot duration when possible\n- Consider energy_level vs time of day\n- Don't suggest tasks that depend on incomplete tasks\n- If no good match, pick the highest urgency+importance task\n\nReturn ONLY valid JSON:\n{\n  \"task_id\": \"<uuid>\",\n  \"task_title\": \"<title>\",\n  \"slot\": { \"start\": \"<iso>\", \"end\": \"<iso>\" },\n  \"message\": \"<friendly 1-2 sentence nudge message for Telegram>\"\n}\n\nJSON only, no markdown fences:",
+        "options": {}
+      },
+      "id": "ai-match-task",
+      "name": "AI Match Task to Slot",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1540, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI output and prepare nudge record + notification payload\nconst userData = $('Combine Data').first().json;\nlet aiOutput;\n\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  aiOutput = JSON.parse(text);\n} catch (e) {\n  return []; // AI failed, skip this cycle\n}\n\nreturn [{\n  json: {\n    // For nudge record\n    user_id: userData.user_id,\n    task_id: aiOutput.task_id,\n    channel: 'telegram',\n    message_text: aiOutput.message,\n    calendar_slot: aiOutput.slot,\n    status: 'sent',\n    // For notification sub-workflow\n    telegram_chat_id: userData.telegram_chat_id,\n    title: 'Task Suggestion',\n    body: aiOutput.message\n  }\n}];"
+      },
+      "id": "code-prepare-nudge",
+      "name": "Prepare Nudge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "nudges",
+        "columns": "user_id,task_id,channel,message_text,calendar_slot,status",
+        "options": {}
+      },
+      "id": "supabase-insert-nudge",
+      "name": "Insert Nudge",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1980, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "execute-subworkflow",
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [2200, 300]
+    }
+  ],
+  "connections": {
+    "Cron": {
+      "main": [
+        [{ "node": "Fetch Users", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Users": {
+      "main": [
+        [{ "node": "Google Calendar FreeBusy", "type": "main", "index": 0 }]
+      ]
+    },
+    "Google Calendar FreeBusy": {
+      "main": [
+        [{ "node": "Find Free Slots", "type": "main", "index": 0 }]
+      ]
+    },
+    "Find Free Slots": {
+      "main": [
+        [{ "node": "Fetch Active Tasks", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Active Tasks": {
+      "main": [
+        [{ "node": "Combine Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Combine Data": {
+      "main": [
+        [{ "node": "AI Match Task to Slot", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Match Task to Slot": {
+      "main": [
+        [{ "node": "Prepare Nudge", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Nudge": {
+      "main": [
+        [{ "node": "Insert Nudge", "type": "main", "index": 0 }]
+      ]
+    },
+    "Insert Nudge": {
+      "main": [
+        [{ "node": "Send Notification", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "task-app" }]
+}

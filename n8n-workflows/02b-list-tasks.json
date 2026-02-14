@@ -1,0 +1,90 @@
+{
+  "name": "02b - List Tasks",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "list-tasks",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-list",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "schema": "public",
+        "table": "tasks",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "=user_id=eq.{{ $json.body.user_id }}&status=eq.{{ $json.body.status || 'pending' }}&order=urgency.desc,importance.desc,created_at.desc"
+      },
+      "id": "supabase-list",
+      "name": "Fetch Tasks",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [440, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tasks = $input.all().map(item => item.json);\nreturn [{ json: { tasks } }];"
+      },
+      "id": "code-wrap",
+      "name": "Wrap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.tasks || []) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Fetch Tasks", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Tasks": {
+      "main": [
+        [{ "node": "Wrap", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wrap": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "task-app" }]
+}

@@ -1,0 +1,306 @@
+{
+  "name": "02 - Clear Task (Conversational)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clear-task",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-clear",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "schema": "public",
+        "table": "tasks",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "=user_id=eq.{{ $json.body.user_id }}&status=in.(pending,in_progress)&order=urgency.desc,importance.desc,created_at.asc"
+      },
+      "id": "fetch-tasks",
+      "name": "Fetch Active Tasks",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [440, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect active tasks and pass along with webhook data\nconst webhookData = $('Webhook').first().json.body;\nconst tasks = $input.all().map(item => ({\n  id: item.json.id,\n  title: item.json.title,\n  description: item.json.description,\n  urgency: item.json.urgency,\n  importance: item.json.importance,\n  estimated_minutes: item.json.estimated_minutes,\n  due_date: item.json.due_date,\n  location: item.json.location,\n  status: item.json.status,\n  tags: item.json.tags,\n  energy_level: item.json.energy_level\n}));\n\nreturn [{ json: { ...webhookData, active_tasks: tasks } }];"
+      },
+      "id": "code-combine",
+      "name": "Combine Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a task management assistant. The user wants to clear tasks from their list. This could mean:\n1. They completed a task and want to mark it done\n2. They want you to suggest a task they can do right now\n3. They want to delete a task they no longer need\n\nConversation so far:\n{{ JSON.stringify($json.history || []) }}\n\nUser's latest message:\n\"{{ $json.message }}\"\n\nTheir active tasks:\n{{ JSON.stringify($json.active_tasks) }}\n\nRespond with ONLY valid JSON (no markdown fences):\n\nIf the user is marking a task complete:\n{\"action\": \"complete\", \"task_id\": \"<uuid>\", \"reply\": \"<confirmation message>\"}\n\nIf the user says they're ABOUT to do a task (not done yet):\n{\"action\": \"start\", \"task_id\": \"<uuid>\", \"follow_up_minutes\": <number>, \"reply\": \"<encouraging message, mention you'll check back>\"}\n\nIf the user wants to delete a task:\n{\"action\": \"delete\", \"task_id\": \"<uuid>\", \"reply\": \"<confirmation message>\"}\n\nIf the user wants to snooze a task (hide it for a period):\n{\"action\": \"snooze\", \"task_id\": \"<uuid>\", \"snoozed_until\": \"<ISO 8601 datetime>\", \"reply\": \"<confirmation message>\"}\n\nIf the user wants a suggestion for what to do now:\n{\"action\": \"suggest\", \"task_id\": \"<uuid>\", \"reply\": \"<friendly suggestion explaining why this task is a good fit right now, considering urgency, importance, due dates, and estimated time>\"}\n\nIf you need clarification (e.g. which task they mean, or their intent is unclear):\n{\"action\": \"clarify\", \"reply\": \"<your question>\"}\n\nRules:\n- Match tasks by title fuzzy-matching — the user might not say the exact title\n- If multiple tasks could match, ask which one they mean\n- When suggesting a task, use Eisenhower matrix logic: urgent+important first, then important, then urgent, then everything else. Factor in due dates.\n- Be concise and friendly\n- For 'start' action, set follow_up_minutes to the task's estimated_minutes (or 30 if unknown)",
+        "options": {}
+      },
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "let parsed;\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(text);\n} catch (e) {\n  const fallback = $input.first().json.output || $input.first().json.text || 'Could you tell me more?';\n  return [{ json: { reply: fallback, done: false, action: 'clarify' } }];\n}\n\nreturn [{ json: {\n  action: parsed.action,\n  task_id: parsed.task_id || null,\n  follow_up_minutes: parsed.follow_up_minutes || null,\n  snoozed_until: parsed.snoozed_until || null,\n  reply: parsed.reply,\n  done: parsed.action !== 'clarify' && parsed.action !== 'suggest'\n} }];"
+      },
+      "id": "code-parse",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.action }}"
+      },
+      "id": "switch-action",
+      "name": "Switch Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "public",
+        "table": "tasks",
+        "filtersUI": {
+          "filterValues": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Parse AI Response').first().json.task_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldName": "status", "fieldValue": "completed" }
+          ]
+        }
+      },
+      "id": "supabase-complete",
+      "name": "Mark Complete",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1580, 100],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "public",
+        "table": "tasks",
+        "filtersUI": {
+          "filterValues": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Parse AI Response').first().json.task_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldName": "status", "fieldValue": "in_progress" },
+            { "fieldName": "follow_up_at", "fieldValue": "={{ new Date(Date.now() + ($('Parse AI Response').first().json.follow_up_minutes || 30) * 60000).toISOString() }}" }
+          ]
+        }
+      },
+      "id": "supabase-start",
+      "name": "Mark In Progress",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1580, 260],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "public",
+        "table": "tasks",
+        "filtersUI": {
+          "filterValues": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Parse AI Response').first().json.task_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldName": "status", "fieldValue": "deleted" }
+          ]
+        }
+      },
+      "id": "supabase-delete",
+      "name": "Soft Delete",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1580, 420],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ reply: $('Parse AI Response').first().json.reply, done: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "respond-done",
+      "name": "Respond Done",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1820, 260]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "public",
+        "table": "tasks",
+        "filtersUI": {
+          "filterValues": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Parse AI Response').first().json.task_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldName": "snoozed_until", "fieldValue": "={{ $('Parse AI Response').first().json.snoozed_until }}" }
+          ]
+        }
+      },
+      "id": "supabase-snooze",
+      "name": "Snooze Task",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1580, 540],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ reply: $('Parse AI Response').first().json.reply, done: false }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "respond-clarify",
+      "name": "Respond Clarify/Suggest",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1580, 700]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Fetch Active Tasks", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Active Tasks": {
+      "main": [
+        [{ "node": "Combine Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Combine Data": {
+      "main": [
+        [{ "node": "AI Agent", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [{ "node": "Parse AI Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [{ "node": "Switch Action", "type": "main", "index": 0 }]
+      ]
+    },
+    "Switch Action": {
+      "main": [
+        [{ "node": "Mark Complete", "type": "main", "index": 0 }],
+        [{ "node": "Mark In Progress", "type": "main", "index": 0 }],
+        [{ "node": "Soft Delete", "type": "main", "index": 0 }],
+        [{ "node": "Snooze Task", "type": "main", "index": 0 }],
+        [{ "node": "Respond Clarify/Suggest", "type": "main", "index": 0 }],
+        [{ "node": "Respond Clarify/Suggest", "type": "main", "index": 0 }]
+      ]
+    },
+    "Snooze Task": {
+      "main": [
+        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark Complete": {
+      "main": [
+        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark In Progress": {
+      "main": [
+        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+      ]
+    },
+    "Soft Delete": {
+      "main": [
+        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "task-app" }]
+}

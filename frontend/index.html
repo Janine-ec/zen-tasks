@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zen Tasks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ======================== HOME ======================== -->
+  <div id="home-view" class="view active">
+    <button id="menu-btn" class="menu-btn" title="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    </button>
+
+    <div class="home-spacer"></div>
+
+    <!-- Top tasks (hidden by default, toggled in Settings) -->
+    <div id="home-top-tasks" class="home-top-tasks" style="display:none"></div>
+
+    <div class="home-actions">
+      <button id="btn-add" class="home-btn home-btn-add">
+        <span class="home-btn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </span>
+        Add a task
+      </button>
+      <button id="btn-clear" class="home-btn home-btn-clear">
+        <span class="home-btn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        Clear a task
+      </button>
+    </div>
+
+    <div class="home-spacer-bottom"></div>
+  </div>
+
+  <!-- ======================== MENU OVERLAY ======================== -->
+  <div id="menu-overlay" class="menu-overlay">
+    <div class="menu-panel">
+      <button id="menu-close" class="menu-close-btn" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="menu-brand">Zen Tasks</div>
+      <nav class="menu-nav">
+        <button class="menu-item" data-page="tasks">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
+          All Tasks
+        </button>
+        <button class="menu-item" data-page="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          Settings
+        </button>
+        <button class="menu-item" data-page="account">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Account
+        </button>
+        <button class="menu-item" data-page="about">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          About
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- ======================== CHAT ======================== -->
+  <div id="chat-view" class="view">
+    <div class="chat-header">
+      <button id="chat-back" class="chat-back-btn" title="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span id="chat-title" class="chat-title"></span>
+    </div>
+
+    <div id="chat-messages" class="chat-messages"></div>
+
+    <div class="chat-input-bar">
+      <textarea id="chat-input" rows="3" autocomplete="off"></textarea>
+      <div class="chat-input-btns">
+        <button id="chat-voice" class="chat-btn chat-btn-voice" title="Voice input">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="1" width="6" height="12" rx="3"/>
+            <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <button id="chat-send" class="chat-btn chat-btn-send" title="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== TASKS LIST ======================== -->
+  <div id="tasks-view" class="view">
+    <div class="page-header">
+      <button class="chat-back-btn back-to-home" title="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="page-title">All Tasks</span>
+    </div>
+
+    <div class="tasks-tabs">
+      <button class="tasks-tab active" data-filter="active">Active</button>
+      <button class="tasks-tab" data-filter="closed">Closed</button>
+    </div>
+
+    <!-- Sort controls -->
+    <div class="tasks-sort-bar">
+      <button class="sort-btn active" data-sort="urgency">Urgency</button>
+      <button class="sort-btn" data-sort="importance">Importance</button>
+      <button class="sort-btn" data-sort="due_date">Deadline</button>
+      <button class="sort-btn" data-sort="title">Title</button>
+    </div>
+
+    <div id="tasks-scroll" class="tasks-scroll"></div>
+  </div>
+
+  <!-- ======================== TASK DETAIL ======================== -->
+  <div id="task-detail-view" class="view">
+    <div class="page-header">
+      <button class="chat-back-btn back-to-tasks" title="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="page-title">Task Details</span>
+    </div>
+    <div id="task-detail-content" class="page-content"></div>
+  </div>
+
+  <!-- ======================== SETTINGS ======================== -->
+  <div id="settings-view" class="view">
+    <div class="page-header">
+      <button class="chat-back-btn back-to-home" title="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="page-title">Settings</span>
+    </div>
+    <div class="page-content">
+      <div class="setting-row">
+        <div class="setting-label">
+          <span class="setting-name">Dark mode</span>
+          <span class="setting-desc">Switch to a darker colour scheme</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-dark-mode">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <span class="setting-name">Show top tasks on homepage</span>
+          <span class="setting-desc">Display your 3 highest priority tasks</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-top-tasks">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== ACCOUNT ======================== -->
+  <div id="account-view" class="view">
+    <div class="page-header">
+      <button class="chat-back-btn back-to-home" title="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="page-title">Account</span>
+    </div>
+    <div class="page-content">
+      <div class="info-card">
+        <div class="info-row">
+          <span class="info-label">Plan</span>
+          <span class="info-value">Free</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Sign-in</span>
+          <span class="info-value">Not configured</span>
+        </div>
+      </div>
+      <div class="donate-section">
+        <p class="donate-text">Enjoying Zen Tasks? Help keep it free and growing.</p>
+        <a href="https://ko-fi.com/zentasks" target="_blank" rel="noopener" class="donate-btn">Donate on Ko-fi</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== ABOUT ======================== -->
+  <div id="about-view" class="view">
+    <div class="page-header">
+      <button class="chat-back-btn back-to-home" title="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="page-title">About</span>
+    </div>
+    <div class="page-content">
+      <div class="about-brand">Zen Tasks</div>
+      <p class="about-text">Zen Tasks was created by Janine Grainger, a New Zealand based tech entrepreneur. I wanted an easier way to manage my tasks, without the overwhelm and with more smarts. Here it is &mdash; I hope you enjoy!</p>
+      <p class="about-text">Please donate so that I can keep making great tech to improve others' lives.</p>
+      <a href="https://ko-fi.com/zentasks" target="_blank" rel="noopener" class="donate-btn" style="margin-bottom:24px">Donate on Ko-fi</a>
+      <a href="terms.html" class="about-link">Terms &amp; Conditions</a>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/voice.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
