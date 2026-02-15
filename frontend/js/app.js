@@ -200,8 +200,7 @@
     showThinking();
 
     try {
-      const apiFn = currentMode === 'add' ? API.addTask : API.clearTask;
-      const data = await apiFn(text, chatHistory);
+      const data = await API.sendMessage(text, chatHistory, currentMode);
       hideThinking();
 
       // Support multiple reply messages (one per task action)
@@ -455,7 +454,7 @@
     const doneBtn = e.target.closest('.top-task-btn-done');
     if (doneBtn) {
       try {
-        await API.clearTask('I have completed this task', [{ role: 'system', content: 'Task ID: ' + doneBtn.dataset.id }]);
+        await API.sendMessage('I have completed this task', [{ role: 'system', content: 'Task ID: ' + doneBtn.dataset.id }], 'clear');
         showToast('Task completed!', 'success');
         refreshTopTasks();
       } catch (err) {
@@ -485,7 +484,7 @@
         const hours = parseInt(opt.dataset.hours);
         const until = new Date(Date.now() + hours * 3600000).toISOString();
         try {
-          await API.clearTask(`Snooze this task for ${opt.textContent}`, [{ role: 'system', content: `Task ID: ${snoozeBtn.dataset.id}, snoozed_until: ${until}` }]);
+          await API.sendMessage(`Snooze this task for ${opt.textContent}`, [{ role: 'system', content: `Task ID: ${snoozeBtn.dataset.id}, snoozed_until: ${until}` }], 'clear');
           showToast(`Snoozed for ${opt.textContent}`, 'success');
           refreshTopTasks();
         } catch (err) {

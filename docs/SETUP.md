@@ -28,11 +28,10 @@ A zen task manager where you talk to an AI assistant to add and clear tasks. The
 1. Open Telegram and message [@BotFather](https://t.me/BotFather)
 2. Send `/newbot`, follow the prompts, and save your **Bot Token**
 3. Start a conversation with your new bot (send it any message)
-4. Get your **Chat ID** by visiting:
-   ```
-   https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
-   ```
-   Look for `"chat":{"id": 123456789}` in the response
+4. Get your **Chat ID** — easiest way:
+   - In n8n, add your Telegram credential (Settings > Credentials > Telegram, paste your bot token)
+   - Create a temporary workflow with a Telegram node, set it to "Send Message", and click "Test". The chat ID will appear in the test output.
+   - Alternatively, search for **@userinfobot** in Telegram and send it any message — it replies with your ID.
 5. Update the default user in Supabase:
    ```sql
    UPDATE users

@@ -5,12 +5,11 @@
 
 const CONFIG = {
   // n8n webhook base URL (no trailing slash)
-  N8N_BASE_URL: 'http://localhost:5678/webhook',
+  N8N_BASE_URL: 'https://janine-nz.app.n8n.cloud/webhook',
 
   // n8n webhook paths
   ENDPOINTS: {
-    ADD_TASK:    '/add-task',
-    CLEAR_TASK:  '/clear-task',
+    TASK_AGENT:  '/task-agent',
     LIST_TASKS:  '/list-tasks',
   },
 

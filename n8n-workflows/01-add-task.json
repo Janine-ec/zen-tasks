@@ -11,7 +11,7 @@
         }
       },
       "id": "webhook-add",
-      "name": "Webhook",
+      "name": "Add Task Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [220, 300]
@@ -23,17 +23,17 @@
         "options": {}
       },
       "id": "ai-agent",
-      "name": "AI Agent",
+      "name": "Add Task AI",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [440, 300]
     },
     {
       "parameters": {
-        "jsCode": "const rawMessage = $('Webhook').first().json.body.message;\nconst userId = $('Webhook').first().json.body.user_id;\nconst history = $('Webhook').first().json.body.history || [];\n\nlet parsed;\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(text);\n} catch (e) {\n  // AI output wasn't valid JSON — treat as clarifying reply\n  const fallbackText = $input.first().json.output || $input.first().json.text || 'Could you tell me more about that task?';\n  return [{ json: { replies: [fallbackText], done: false } }];\n}\n\nif (parsed.action === 'clarify') {\n  return [{ json: { replies: [parsed.reply], done: false } }];\n}\n\n// Action is 'create' — prepare tasks for insertion\nconst tasks = (parsed.tasks || [parsed]).map(t => ({\n  user_id: userId,\n  raw_input: rawMessage,\n  title: t.title || rawMessage,\n  description: t.description || null,\n  urgency: Math.max(1, Math.min(5, parseInt(t.urgency) || 3)),\n  importance: Math.max(1, Math.min(5, parseInt(t.importance) || 3)),\n  estimated_minutes: t.estimated_minutes ? parseInt(t.estimated_minutes) : null,\n  due_date: t.due_date || null,\n  location: t.location || null,\n  tags: Array.isArray(t.tags) ? t.tags : [],\n  energy_level: ['low','medium','high'].includes(t.energy_level) ? t.energy_level : 'medium',\n  can_be_split: !!t.can_be_split,\n  recurrence: t.recurrence || null,\n  ai_conversation: history,\n  status: 'pending'\n}));\n\n// Build per-task confirmation replies\nconst replies = parsed.replies || (parsed.reply ? [parsed.reply] : tasks.map(t => `Added: ${t.title}`));\n\nreturn [{ json: { replies, done: true, tasks } }];"
+        "jsCode": "const rawMessage = $('Add Task Webhook').first().json.body.message;\nconst userId = $('Add Task Webhook').first().json.body.user_id;\nconst history = $('Add Task Webhook').first().json.body.history || [];\n\nlet parsed;\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(text);\n} catch (e) {\n  // AI output wasn't valid JSON — treat as clarifying reply\n  const fallbackText = $input.first().json.output || $input.first().json.text || 'Could you tell me more about that task?';\n  return [{ json: { replies: [fallbackText], done: false } }];\n}\n\nif (parsed.action === 'clarify') {\n  return [{ json: { replies: [parsed.reply], done: false } }];\n}\n\n// Action is 'create' — prepare tasks for insertion\nconst tasks = (parsed.tasks || [parsed]).map(t => ({\n  user_id: userId,\n  raw_input: rawMessage,\n  title: t.title || rawMessage,\n  description: t.description || null,\n  urgency: Math.max(1, Math.min(5, parseInt(t.urgency) || 3)),\n  importance: Math.max(1, Math.min(5, parseInt(t.importance) || 3)),\n  estimated_minutes: t.estimated_minutes ? parseInt(t.estimated_minutes) : null,\n  due_date: t.due_date || null,\n  location: t.location || null,\n  tags: Array.isArray(t.tags) ? t.tags : [],\n  energy_level: ['low','medium','high'].includes(t.energy_level) ? t.energy_level : 'medium',\n  can_be_split: !!t.can_be_split,\n  recurrence: t.recurrence || null,\n  ai_conversation: history,\n  status: 'pending'\n}));\n\n// Build per-task confirmation replies\nconst replies = parsed.replies || (parsed.reply ? [parsed.reply] : tasks.map(t => `Added: ${t.title}`));\n\nreturn [{ json: { replies, done: true, tasks } }];"
       },
       "id": "code-parse",
-      "name": "Parse AI Response",
+      "name": "Parse Add Task Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [660, 300]
@@ -67,14 +67,31 @@
     },
     {
       "parameters": {
-        "operation": "insert",
-        "schema": "public",
-        "table": "tasks",
-        "columns": "user_id,raw_input,title,description,urgency,importance,estimated_minutes,due_date,location,tags,energy_level,can_be_split,recurrence,ai_conversation,status",
+        "operation": "create",
+        "tableId": "tasks",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "user_id", "fieldValue": "={{ $json.user_id }}" },
+            { "fieldId": "raw_input", "fieldValue": "={{ $json.raw_input }}" },
+            { "fieldId": "title", "fieldValue": "={{ $json.title }}" },
+            { "fieldId": "description", "fieldValue": "={{ $json.description }}" },
+            { "fieldId": "urgency", "fieldValue": "={{ $json.urgency }}" },
+            { "fieldId": "importance", "fieldValue": "={{ $json.importance }}" },
+            { "fieldId": "estimated_minutes", "fieldValue": "={{ $json.estimated_minutes }}" },
+            { "fieldId": "due_date", "fieldValue": "={{ $json.due_date }}" },
+            { "fieldId": "location", "fieldValue": "={{ $json.location }}" },
+            { "fieldId": "tags", "fieldValue": "={{ $json.tags }}" },
+            { "fieldId": "energy_level", "fieldValue": "={{ $json.energy_level }}" },
+            { "fieldId": "can_be_split", "fieldValue": "={{ $json.can_be_split }}" },
+            { "fieldId": "recurrence", "fieldValue": "={{ $json.recurrence }}" },
+            { "fieldId": "ai_conversation", "fieldValue": "={{ $json.ai_conversation }}" },
+            { "fieldId": "status", "fieldValue": "={{ $json.status }}" }
+          ]
+        },
         "options": {}
       },
       "id": "supabase-insert",
-      "name": "Supabase Insert",
+      "name": "Insert Task",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [1320, 220],
@@ -88,7 +105,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ replies: $('Parse AI Response').first().json.replies, done: true }) }}",
+        "responseBody": "={{ JSON.stringify({ replies: $('Parse Add Task Response').first().json.replies, done: true }) }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -98,7 +115,7 @@
         }
       },
       "id": "respond-done",
-      "name": "Respond Done",
+      "name": "Add Task Done",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [1540, 220]
@@ -106,7 +123,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ replies: $('Parse AI Response').first().json.replies, done: false }) }}",
+        "responseBody": "={{ JSON.stringify({ replies: $('Parse Add Task Response').first().json.replies, done: false }) }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -116,24 +133,24 @@
         }
       },
       "id": "respond-clarify",
-      "name": "Respond Clarify",
+      "name": "Add Task Clarify",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [1100, 420]
     }
   ],
   "connections": {
-    "Webhook": {
+    "Add Task Webhook": {
       "main": [
-        [{ "node": "AI Agent", "type": "main", "index": 0 }]
+        [{ "node": "Add Task AI", "type": "main", "index": 0 }]
       ]
     },
-    "AI Agent": {
+    "Add Task AI": {
       "main": [
-        [{ "node": "Parse AI Response", "type": "main", "index": 0 }]
+        [{ "node": "Parse Add Task Response", "type": "main", "index": 0 }]
       ]
     },
-    "Parse AI Response": {
+    "Parse Add Task Response": {
       "main": [
         [{ "node": "Task Created?", "type": "main", "index": 0 }]
       ]
@@ -141,17 +158,17 @@
     "Task Created?": {
       "main": [
         [{ "node": "Split Tasks", "type": "main", "index": 0 }],
-        [{ "node": "Respond Clarify", "type": "main", "index": 0 }]
+        [{ "node": "Add Task Clarify", "type": "main", "index": 0 }]
       ]
     },
     "Split Tasks": {
       "main": [
-        [{ "node": "Supabase Insert", "type": "main", "index": 0 }]
+        [{ "node": "Insert Task", "type": "main", "index": 0 }]
       ]
     },
-    "Supabase Insert": {
+    "Insert Task": {
       "main": [
-        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+        [{ "node": "Add Task Done", "type": "main", "index": 0 }]
       ]
     }
   },

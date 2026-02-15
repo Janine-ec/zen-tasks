@@ -11,7 +11,7 @@
         }
       },
       "id": "webhook-list",
-      "name": "Webhook",
+      "name": "List Tasks Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [220, 300]
@@ -19,14 +19,13 @@
     {
       "parameters": {
         "operation": "getAll",
-        "schema": "public",
-        "table": "tasks",
+        "tableId": "tasks",
         "returnAll": true,
         "filterType": "string",
         "filterString": "=user_id=eq.{{ $json.body.user_id }}&status=eq.{{ $json.body.status || 'pending' }}&order=urgency.desc,importance.desc,created_at.desc"
       },
       "id": "supabase-list",
-      "name": "Fetch Tasks",
+      "name": "Fetch Task List",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [440, 300],
@@ -42,7 +41,7 @@
         "jsCode": "const tasks = $input.all().map(item => item.json);\nreturn [{ json: { tasks } }];"
       },
       "id": "code-wrap",
-      "name": "Wrap",
+      "name": "Wrap Task List",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [660, 300]
@@ -60,26 +59,26 @@
         }
       },
       "id": "respond",
-      "name": "Respond",
+      "name": "List Tasks Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [880, 300]
     }
   ],
   "connections": {
-    "Webhook": {
+    "List Tasks Webhook": {
       "main": [
-        [{ "node": "Fetch Tasks", "type": "main", "index": 0 }]
+        [{ "node": "Fetch Task List", "type": "main", "index": 0 }]
       ]
     },
-    "Fetch Tasks": {
+    "Fetch Task List": {
       "main": [
-        [{ "node": "Wrap", "type": "main", "index": 0 }]
+        [{ "node": "Wrap Task List", "type": "main", "index": 0 }]
       ]
     },
-    "Wrap": {
+    "Wrap Task List": {
       "main": [
-        [{ "node": "Respond", "type": "main", "index": 0 }]
+        [{ "node": "List Tasks Respond", "type": "main", "index": 0 }]
       ]
     }
   },

@@ -4,91 +4,36 @@
     {
       "parameters": {},
       "id": "trigger-subworkflow",
-      "name": "Execute Workflow Trigger",
+      "name": "Notification Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [220, 300]
     },
     {
       "parameters": {
-        "mode": "expression",
-        "output": "={{ $json.channel }}"
-      },
-      "id": "switch-channel",
-      "name": "Switch Channel",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [440, 300]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $('Execute Workflow Trigger').first().json.telegram_chat_id }}",
-        "text": "={{ $('Execute Workflow Trigger').first().json.message_text }}",
+        "chatId": "={{ $json.telegram_chat_id }}",
+        "text": "={{ $json.message_text }}",
         "additionalFields": {
           "parse_mode": "Markdown"
         }
       },
       "id": "telegram-send",
-      "name": "Telegram Send",
+      "name": "Send Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [700, 200],
+      "position": [440, 300],
       "credentials": {
         "telegramApi": {
           "id": "TELEGRAM_CREDENTIAL_ID",
           "name": "Telegram Bot"
         }
       }
-    },
-    {
-      "parameters": {
-        "operation": "insert",
-        "schema": "public",
-        "table": "notifications",
-        "columns": "user_id,nudge_id,title,body",
-        "options": {}
-      },
-      "id": "supabase-in-app",
-      "name": "Insert In-App Notification",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [700, 400],
-      "credentials": {
-        "supabaseApi": {
-          "id": "SUPABASE_CREDENTIAL_ID",
-          "name": "Supabase"
-        }
-      }
-    },
-    {
-      "parameters": {},
-      "id": "noop-end",
-      "name": "Done",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [940, 300]
     }
   ],
   "connections": {
-    "Execute Workflow Trigger": {
+    "Notification Trigger": {
       "main": [
-        [{ "node": "Switch Channel", "type": "main", "index": 0 }]
-      ]
-    },
-    "Switch Channel": {
-      "main": [
-        [{ "node": "Telegram Send", "type": "main", "index": 0 }],
-        [{ "node": "Insert In-App Notification", "type": "main", "index": 0 }]
-      ]
-    },
-    "Telegram Send": {
-      "main": [
-        [{ "node": "Done", "type": "main", "index": 0 }]
-      ]
-    },
-    "Insert In-App Notification": {
-      "main": [
-        [{ "node": "Done", "type": "main", "index": 0 }]
+        [{ "node": "Send Telegram", "type": "main", "index": 0 }]
       ]
     }
   },

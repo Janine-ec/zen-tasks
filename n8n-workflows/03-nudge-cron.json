@@ -5,119 +5,38 @@
       "parameters": {
         "rule": {
           "interval": [
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 8
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 8
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 9
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 9
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 10
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 10
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 11
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 11
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 12
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 12
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 13
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 13
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 14
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 14
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 15
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 15
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 16
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 16
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 17
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 17
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 18
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 18
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 19
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 19
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 20
-            },
-            {
-              "triggerAtMinute": 30,
-              "triggerAtHour": 20
-            },
-            {
-              "triggerAtMinute": 0,
-              "triggerAtHour": 21
-            }
+            { "triggerAtMinute": 0, "triggerAtHour": 8 },
+            { "triggerAtMinute": 30, "triggerAtHour": 8 },
+            { "triggerAtMinute": 0, "triggerAtHour": 9 },
+            { "triggerAtMinute": 30, "triggerAtHour": 9 },
+            { "triggerAtMinute": 0, "triggerAtHour": 10 },
+            { "triggerAtMinute": 30, "triggerAtHour": 10 },
+            { "triggerAtMinute": 0, "triggerAtHour": 11 },
+            { "triggerAtMinute": 30, "triggerAtHour": 11 },
+            { "triggerAtMinute": 0, "triggerAtHour": 12 },
+            { "triggerAtMinute": 30, "triggerAtHour": 12 },
+            { "triggerAtMinute": 0, "triggerAtHour": 13 },
+            { "triggerAtMinute": 30, "triggerAtHour": 13 },
+            { "triggerAtMinute": 0, "triggerAtHour": 14 },
+            { "triggerAtMinute": 30, "triggerAtHour": 14 },
+            { "triggerAtMinute": 0, "triggerAtHour": 15 },
+            { "triggerAtMinute": 30, "triggerAtHour": 15 },
+            { "triggerAtMinute": 0, "triggerAtHour": 16 },
+            { "triggerAtMinute": 30, "triggerAtHour": 16 },
+            { "triggerAtMinute": 0, "triggerAtHour": 17 },
+            { "triggerAtMinute": 30, "triggerAtHour": 17 },
+            { "triggerAtMinute": 0, "triggerAtHour": 18 },
+            { "triggerAtMinute": 30, "triggerAtHour": 18 },
+            { "triggerAtMinute": 0, "triggerAtHour": 19 },
+            { "triggerAtMinute": 30, "triggerAtHour": 19 },
+            { "triggerAtMinute": 0, "triggerAtHour": 20 },
+            { "triggerAtMinute": 30, "triggerAtHour": 20 },
+            { "triggerAtMinute": 0, "triggerAtHour": 21 }
           ]
         }
       },
       "id": "cron-trigger",
-      "name": "Cron",
+      "name": "Nudge Cron",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [220, 300]
@@ -125,8 +44,7 @@
     {
       "parameters": {
         "operation": "getAll",
-        "schema": "public",
-        "table": "users",
+        "tableId": "users",
         "returnAll": true,
         "filterType": "string",
         "filterString": "telegram_chat_id=not.is.null"
@@ -177,14 +95,13 @@
     {
       "parameters": {
         "operation": "getAll",
-        "schema": "public",
-        "table": "tasks",
+        "tableId": "tasks",
         "returnAll": true,
         "filterType": "string",
         "filterString": "=user_id=eq.{{ $json.user_id }}&status=in.(pending,in_progress)&or=(snoozed_until.is.null,snoozed_until.lt.{{ new Date().toISOString() }})&order=urgency.desc,importance.desc,created_at.asc"
       },
       "id": "fetch-active-tasks",
-      "name": "Fetch Active Tasks",
+      "name": "Fetch Tasks for Nudge",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [1100, 300],
@@ -200,7 +117,7 @@
         "jsCode": "// Combine free slots + tasks for AI matching\nconst freeSlotData = $('Find Free Slots').first().json;\nconst tasks = $input.all().map(item => item.json);\n\nif (tasks.length === 0) return []; // No tasks, stop\n\nreturn [{\n  json: {\n    ...freeSlotData,\n    tasks: tasks\n  }\n}];"
       },
       "id": "code-combine",
-      "name": "Combine Data",
+      "name": "Combine Nudge Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1320, 300]
@@ -219,7 +136,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parse AI output and prepare nudge record + notification payload\nconst userData = $('Combine Data').first().json;\nlet aiOutput;\n\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  aiOutput = JSON.parse(text);\n} catch (e) {\n  return []; // AI failed, skip this cycle\n}\n\nreturn [{\n  json: {\n    // For nudge record\n    user_id: userData.user_id,\n    task_id: aiOutput.task_id,\n    channel: 'telegram',\n    message_text: aiOutput.message,\n    calendar_slot: aiOutput.slot,\n    status: 'sent',\n    // For notification sub-workflow\n    telegram_chat_id: userData.telegram_chat_id,\n    title: 'Task Suggestion',\n    body: aiOutput.message\n  }\n}];"
+        "jsCode": "// Parse AI output and prepare nudge record + notification payload\nconst userData = $('Combine Nudge Data').first().json;\nlet aiOutput;\n\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  aiOutput = JSON.parse(text);\n} catch (e) {\n  return []; // AI failed, skip this cycle\n}\n\nreturn [{\n  json: {\n    // For nudge record\n    user_id: userData.user_id,\n    task_id: aiOutput.task_id,\n    channel: 'telegram',\n    message_text: aiOutput.message,\n    calendar_slot: aiOutput.slot,\n    status: 'sent',\n    // For notification sub-workflow\n    telegram_chat_id: userData.telegram_chat_id,\n    title: 'Task Suggestion',\n    body: aiOutput.message\n  }\n}];"
       },
       "id": "code-prepare-nudge",
       "name": "Prepare Nudge",
@@ -229,10 +146,18 @@
     },
     {
       "parameters": {
-        "operation": "insert",
-        "schema": "public",
-        "table": "nudges",
-        "columns": "user_id,task_id,channel,message_text,calendar_slot,status",
+        "operation": "create",
+        "tableId": "nudges",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "user_id", "fieldValue": "={{ $json.user_id }}" },
+            { "fieldId": "task_id", "fieldValue": "={{ $json.task_id }}" },
+            { "fieldId": "channel", "fieldValue": "={{ $json.channel }}" },
+            { "fieldId": "message_text", "fieldValue": "={{ $json.message_text }}" },
+            { "fieldId": "calendar_slot", "fieldValue": "={{ $json.calendar_slot }}" },
+            { "fieldId": "status", "fieldValue": "={{ $json.status }}" }
+          ]
+        },
         "options": {}
       },
       "id": "supabase-insert-nudge",
@@ -264,7 +189,7 @@
     }
   ],
   "connections": {
-    "Cron": {
+    "Nudge Cron": {
       "main": [
         [{ "node": "Fetch Users", "type": "main", "index": 0 }]
       ]
@@ -281,15 +206,15 @@
     },
     "Find Free Slots": {
       "main": [
-        [{ "node": "Fetch Active Tasks", "type": "main", "index": 0 }]
+        [{ "node": "Fetch Tasks for Nudge", "type": "main", "index": 0 }]
       ]
     },
-    "Fetch Active Tasks": {
+    "Fetch Tasks for Nudge": {
       "main": [
-        [{ "node": "Combine Data", "type": "main", "index": 0 }]
+        [{ "node": "Combine Nudge Data", "type": "main", "index": 0 }]
       ]
     },
-    "Combine Data": {
+    "Combine Nudge Data": {
       "main": [
         [{ "node": "AI Match Task to Slot", "type": "main", "index": 0 }]
       ]

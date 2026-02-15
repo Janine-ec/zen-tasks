@@ -1,0 +1,1589 @@
+{
+  "name": "02 - Clear Task (Conversational)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Workflow #4 - send notification"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -272,
+        3104
+      ],
+      "typeVersion": 1,
+      "id": "393aab32-d6de-4c8b-889e-bd9e8e40f847",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Workflow #1 - add task"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -288,
+        1136
+      ],
+      "typeVersion": 1,
+      "id": "474bdbff-b72b-4c53-975a-bc8d03f2a1f6",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "Workflow #2 "
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -272,
+        1568
+      ],
+      "typeVersion": 1,
+      "id": "7d5e39f5-aadc-4dc6-bf93-ce93cc5fc893",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "Workflow #3 - nudge"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -288,
+        2544
+      ],
+      "typeVersion": 1,
+      "id": "159d1484-bd93-42ac-9f23-617bbaa737cb",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "Workflow #2b list tasks\n"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -272,
+        2176
+      ],
+      "typeVersion": 1,
+      "id": "e6d4efc7-0434-480a-8d75-472071e20ed7",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {},
+      "id": "070a9208-03fc-4d42-bc38-db798cf6aec5",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        3136
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id }}",
+        "text": "={{ $json.message_text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "99bae2e2-0ff8-451b-b053-166103f6552f",
+      "name": "Telegram Send",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        384,
+        3136
+      ],
+      "webhookId": "f80b93c4-9edc-479c-9e35-58cb02b058b2",
+      "credentials": {
+        "telegramApi": {
+          "id": "KkC87xdTyonT4zS0",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clear-task",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "821fcc63-9a18-4410-a8bb-cb81d2310751",
+      "name": "Webhook1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        16,
+        1600
+      ],
+      "webhookId": "5942b15f-6b7a-407e-9aed-90f78e74f16c"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "tasks",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "=user_id=eq.{{ $json.body.user_id }}&status=eq.{{ $json.body.status || 'pending' }}&order=urgency.desc,importance.desc,created_at.desc"
+      },
+      "id": "2cefbf0e-0c88-4d48-9ae6-4067da8bd60e",
+      "name": "Fetch Tasks",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        272,
+        2192
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tasks = $input.all().map(item => item.json);\nreturn [{ json: { tasks } }];"
+      },
+      "id": "a8fb53da-2afa-4458-908b-42a3a03e94f0",
+      "name": "Wrap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        2192
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.tasks || []) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "e9226654-3708-44c2-9e55-65b1df32b858",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        2192
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "list-tasks",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "98d12022-5400-49e4-aa0e-3eadee52356e",
+      "name": "Webhook2",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        48,
+        2192
+      ],
+      "webhookId": "008f1312-fe64-4835-ab7c-ff1b4458f2c6"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        1328
+      ],
+      "id": "367a8744-a945-4545-83d1-c5edada64883",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "3dA4zhAuCJza37BH",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            },
+            {
+              "triggerAtHour": 8,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 9
+            },
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 10
+            },
+            {
+              "triggerAtHour": 10,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 11
+            },
+            {
+              "triggerAtHour": 11,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 12
+            },
+            {
+              "triggerAtHour": 12,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 13
+            },
+            {
+              "triggerAtHour": 13,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 14
+            },
+            {
+              "triggerAtHour": 14,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 15
+            },
+            {
+              "triggerAtHour": 15,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 16
+            },
+            {
+              "triggerAtHour": 16,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 17
+            },
+            {
+              "triggerAtHour": 17,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 18
+            },
+            {
+              "triggerAtHour": 18,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 19
+            },
+            {
+              "triggerAtHour": 19,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 20
+            },
+            {
+              "triggerAtHour": 20,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 21
+            }
+          ]
+        }
+      },
+      "id": "93e5d333-ea6b-4281-9708-a20c78292ea7",
+      "name": "Cron",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "users",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "telegram_chat_id=not.is.null"
+      },
+      "id": "4e9427d3-8fa1-4edc-8b75-32cc5f7ede17",
+      "name": "Fetch Users",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        256,
+        2560
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/calendar/v3/freeBusy",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"timeMin\": \"{{ new Date().toISOString() }}\",\n  \"timeMax\": \"{{ new Date(Date.now() + 2*60*60*1000).toISOString() }}\",\n  \"items\": [{\"id\": \"primary\"}]\n}",
+        "options": {}
+      },
+      "id": "f3f81eaf-e192-4107-8127-2d3bf06fed96",
+      "name": "Google Calendar FreeBusy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find free slots >= 15 min in the next 2 hours\nconst user = $('Fetch Users').first().json;\nconst calData = $input.first().json;\nconst busySlots = calData?.calendars?.primary?.busy || [];\n\nconst now = new Date();\nconst windowEnd = new Date(now.getTime() + 2 * 60 * 60 * 1000);\n\n// Build free slots by subtracting busy from window\nconst freeSlots = [];\nlet cursor = now;\n\nfor (const busy of busySlots) {\n  const busyStart = new Date(busy.start);\n  const busyEnd = new Date(busy.end);\n\n  if (cursor < busyStart) {\n    const durationMin = (busyStart - cursor) / 60000;\n    if (durationMin >= 15) {\n      freeSlots.push({\n        start: cursor.toISOString(),\n        end: busyStart.toISOString(),\n        duration_minutes: Math.round(durationMin)\n      });\n    }\n  }\n  if (busyEnd > cursor) cursor = busyEnd;\n}\n\n// Remaining time after last busy block\nif (cursor < windowEnd) {\n  const durationMin = (windowEnd - cursor) / 60000;\n  if (durationMin >= 15) {\n    freeSlots.push({\n      start: cursor.toISOString(),\n      end: windowEnd.toISOString(),\n      duration_minutes: Math.round(durationMin)\n    });\n  }\n}\n\nif (freeSlots.length === 0) {\n  return []; // No free time, stop here\n}\n\nreturn [{\n  json: {\n    user_id: user.id,\n    telegram_chat_id: user.telegram_chat_id,\n    timezone: user.timezone,\n    free_slots: freeSlots\n  }\n}];"
+      },
+      "id": "86f44f26-7e2f-461a-a1c9-6ebf9dcc0d37",
+      "name": "Find Free Slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a productivity assistant. Given a user's free calendar slots and their active tasks, pick the single best task to suggest for the nearest free slot.\n\nFree slots:\n{{ JSON.stringify($json.free_slots) }}\n\nActive tasks:\n{{ JSON.stringify($json.tasks.map(t => ({ id: t.id, title: t.title, urgency: t.urgency, importance: t.importance, due_date: t.due_date, estimated_minutes: t.estimated_minutes, location: t.location, energy_level: t.energy_level, depends_on: t.depends_on }))) }}\n\nRules:\n- Use Eisenhower matrix: urgent+important first, then important, then urgent\n- Prefer tasks with approaching due dates\n- Match task estimated_minutes to slot duration when possible\n- Consider energy_level vs time of day\n- Don't suggest tasks that depend on incomplete tasks\n- If no good match, pick the highest urgency+importance task\n\nReturn ONLY valid JSON:\n{\n  \"task_id\": \"<uuid>\",\n  \"task_title\": \"<title>\",\n  \"slot\": { \"start\": \"<iso>\", \"end\": \"<iso>\" },\n  \"message\": \"<friendly 1-2 sentence nudge message for Telegram>\"\n}\n\nJSON only, no markdown fences:",
+        "options": {}
+      },
+      "id": "330834c0-d691-4766-8241-dcd5a2d72e63",
+      "name": "AI Match Task to Slot",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1296,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI output and prepare nudge record + notification payload\nconst userData = $('Combine Data1').first().json;\nlet aiOutput;\n\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  aiOutput = JSON.parse(text);\n} catch (e) {\n  return []; // AI failed, skip this cycle\n}\n\nreturn [{\n  json: {\n    // For nudge record\n    user_id: userData.user_id,\n    task_id: aiOutput.task_id,\n    channel: 'telegram',\n    message_text: aiOutput.message,\n    calendar_slot: aiOutput.slot,\n    status: 'sent',\n    // For notification sub-workflow\n    telegram_chat_id: userData.telegram_chat_id,\n    title: 'Task Suggestion',\n    body: aiOutput.message\n  }\n}];"
+      },
+      "id": "541dc6b5-a375-4f0f-82c5-956e937d00ca",
+      "name": "Prepare Nudge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "nudges"
+      },
+      "id": "31005852-fce8-4e36-a5b8-6cd706a532c4",
+      "name": "Insert Nudge",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1792,
+        2560
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "c0f028de-3746-4ec6-9a9f-f7b731282a5c",
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2016,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "tasks",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "=user_id=eq.{{ $json.user_id }}&status=in.(pending,in_progress)&or=(snoozed_until.is.null,snoozed_until.lt.{{ new Date().toISOString() }})&order=urgency.desc,importance.desc,created_at.asc"
+      },
+      "id": "bc8e74e5-42f6-485c-bde1-512342b736da",
+      "name": "Fetch Active Tasks1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        912,
+        2560
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine free slots + tasks for AI matching\nconst freeSlotData = $('Find Free Slots').first().json;\nconst tasks = $input.all().map(item => item.json);\n\nif (tasks.length === 0) return []; // No tasks, stop\n\nreturn [{\n  json: {\n    ...freeSlotData,\n    tasks: tasks\n  }\n}];"
+      },
+      "id": "485a393e-b9a3-4486-8412-0592b923030c",
+      "name": "Combine Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a helpful task-capture assistant. Your job is to understand what the user wants to add to their task list and gather enough information to create a well-structured task.\n\nConversation so far:\n{{ JSON.stringify($json.body.history || []) }}\n\nUser's latest message:\n\"{{ $json.body.message }}\"\n\nFor each task mentioned, you need to determine:\n- title: A clear, concise task title\n- description: Any extra detail (or null)\n- urgency: 1-5 scale (1=not urgent at all, 5=critical/time-sensitive)\n- importance: 1-5 scale (1=trivial, 5=critical impact)\n- estimated_minutes: How long it might take (or null)\n- due_date: ISO 8601 if mentioned (or null)\n- location: Where it must be done, if specific (or null)\n- tags: Relevant short tags as an array\n- energy_level: \"low\", \"medium\", or \"high\" — how much focus/energy it needs\n- can_be_split: true/false — can it be done in chunks?\n- recurrence: e.g. \"weekly\", \"daily\", or null\n- depends_on_title: Title of another task this depends on, if mentioned (or null)\n\nRules:\n1. If the user's input is clear enough to create a task, respond with JSON:\n   {\"action\": \"create\", \"reply\": \"<friendly confirmation message>\", \"tasks\": [<task objects>]}\n2. If you need to ask a clarifying question (e.g. urgency is unclear, or you want to confirm details), respond with JSON:\n   {\"action\": \"clarify\", \"reply\": \"<your question to the user>\"}\n3. The user may mention multiple tasks at once — capture all of them.\n4. Be conversational and friendly but concise.\n5. Don't ask too many questions — make reasonable assumptions and only ask if something is genuinely ambiguous.\n6. If urgency/importance aren't mentioned, make a reasonable estimate based on context.\n\nRespond with ONLY valid JSON, no markdown fences.",
+        "options": {}
+      },
+      "id": "200cd5eb-8fca-40db-a289-4384a16a8822",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        208,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawMessage = $('Webhook').first().json.body.message;\nconst userId = $('Webhook').first().json.body.user_id;\nconst history = $('Webhook').first().json.body.history || [];\n\nlet parsed;\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(text);\n} catch (e) {\n  // AI output wasn't valid JSON — treat as clarifying reply\n  const fallbackText = $input.first().json.output || $input.first().json.text || 'Could you tell me more about that task?';\n  return [{ json: { replies: [fallbackText], done: false } }];\n}\n\nif (parsed.action === 'clarify') {\n  return [{ json: { replies: [parsed.reply], done: false } }];\n}\n\n// Action is 'create' — prepare tasks for insertion\nconst tasks = (parsed.tasks || [parsed]).map(t => ({\n  user_id: userId,\n  raw_input: rawMessage,\n  title: t.title || rawMessage,\n  description: t.description || null,\n  urgency: Math.max(1, Math.min(5, parseInt(t.urgency) || 3)),\n  importance: Math.max(1, Math.min(5, parseInt(t.importance) || 3)),\n  estimated_minutes: t.estimated_minutes ? parseInt(t.estimated_minutes) : null,\n  due_date: t.due_date || null,\n  location: t.location || null,\n  tags: Array.isArray(t.tags) ? t.tags : [],\n  energy_level: ['low','medium','high'].includes(t.energy_level) ? t.energy_level : 'medium',\n  can_be_split: !!t.can_be_split,\n  recurrence: t.recurrence || null,\n  ai_conversation: history,\n  status: 'pending'\n}));\n\n// Build per-task confirmation replies\nconst replies = parsed.replies || (parsed.reply ? [parsed.reply] : tasks.map(t => `Added: ${t.title}`));\n\nreturn [{ json: { replies, done: true, tasks } }];"
+      },
+      "id": "b5a2d27c-188d-43a5-b196-7153f51c8f84",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.done }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0a4208da-402a-443a-a50a-15016e18c462",
+      "name": "Task Created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        656,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split tasks array into individual items for Supabase insert\nconst tasks = $input.first().json.tasks || [];\nreturn tasks.map(t => ({ json: t }));"
+      },
+      "id": "b1628d99-ccda-42ab-9993-d1871bbb5aaf",
+      "name": "Split Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "tasks",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "user_id",
+              "fieldValue": "={{ $json.user_id }}"
+            },
+            {
+              "fieldId": "raw_input",
+              "fieldValue": "={{ $json.raw_input }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldId": "description",
+              "fieldValue": "={{ $json.description }}"
+            },
+            {
+              "fieldId": "urgency",
+              "fieldValue": "={{ $json.urgency }}"
+            },
+            {
+              "fieldId": "importance",
+              "fieldValue": "={{ $json.importance }}"
+            },
+            {
+              "fieldId": "estimated_minutes",
+              "fieldValue": "={{ $json.estimated_minutes }}"
+            },
+            {
+              "fieldId": "due_date",
+              "fieldValue": "={{ $json.due_date }}"
+            },
+            {
+              "fieldId": "location",
+              "fieldValue": "={{ $json.location }}"
+            },
+            {
+              "fieldId": "tags",
+              "fieldValue": "={{ $json.tags }}"
+            },
+            {
+              "fieldId": "energy_level",
+              "fieldValue": "={{ $json.energy_level }}"
+            },
+            {
+              "fieldId": "can_be_split",
+              "fieldValue": "={{ $json.can_be_split }}"
+            },
+            {
+              "fieldId": "recurrence",
+              "fieldValue": "={{ $json.recurrence }}"
+            },
+            {
+              "fieldId": "ai_conversation",
+              "fieldValue": "={{ $json.ai_conversation }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            }
+          ]
+        }
+      },
+      "id": "e10d8c70-ad22-4b79-bf15-695749d8fc95",
+      "name": "Supabase Insert",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        1040
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ replies: $('Parse AI Response').first().json.replies, done: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "4f27f454-e5ba-46d4-b705-672474a37d24",
+      "name": "Respond Done",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1328,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ replies: $('Parse AI Response').first().json.replies, done: false }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "9607b631-b93c-42c3-a406-8f9782c55590",
+      "name": "Respond Clarify",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "add-task",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "b03478c3-c792-46d5-abfd-9cfadaa739ee",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        16,
+        1120
+      ],
+      "webhookId": "5bac067f-92dc-421c-b1ba-a1240cd29bfb"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        432,
+        1808
+      ],
+      "id": "a9b4e267-2736-450e-942e-e87235a7d3f9",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "3dA4zhAuCJza37BH",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1168,
+        2768
+      ],
+      "id": "222e2858-5d1b-435b-8a11-fe0cb5f07804",
+      "name": "Anthropic Chat Model2",
+      "credentials": {
+        "anthropicApi": {
+          "id": "3dA4zhAuCJza37BH",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "tasks",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "=user_id=eq.{{ $json.body.user_id }}&status=in.(pending,in_progress)&order=urgency.desc,importance.desc,created_at.asc"
+      },
+      "id": "417c9fdc-ec9a-4916-9927-5a37c398a266",
+      "name": "Fetch Active Tasks",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        320,
+        1584
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect active tasks and pass along with webhook data\nconst webhookData = $('Webhook1').first().json.body;\nconst tasks = $input.all().map(item => ({\n  id: item.json.id,\n  title: item.json.title,\n  description: item.json.description,\n  urgency: item.json.urgency,\n  importance: item.json.importance,\n  estimated_minutes: item.json.estimated_minutes,\n  due_date: item.json.due_date,\n  location: item.json.location,\n  status: item.json.status,\n  tags: item.json.tags,\n  energy_level: item.json.energy_level\n}));\n\nreturn [{ json: { ...webhookData, active_tasks: tasks } }];"
+      },
+      "id": "657bae02-9640-4aca-882b-2ef2a8afe7d6",
+      "name": "Combine Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "complete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "complete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "start"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "snooze",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "snooze"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "clarify",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "clarify"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "suggest",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "suggest"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "e0547d5d-1fb9-49c0-98a0-b634d9177d6a",
+      "name": "Switch Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1264,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "tasks",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Parse AI Response1').item.json.task_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "completed"
+            }
+          ]
+        }
+      },
+      "id": "17b48d64-016d-4848-b2d4-9dd552b30be7",
+      "name": "Mark Complete",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        1376
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "tasks",
+        "filterType": "string",
+        "filterString": "=id=eq.{{ $('Parse AI Response1').first().json.task_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldValue": "in_progress"
+            },
+            {
+              "fieldValue": "={{ new Date(Date.now() + ($('Parse AI Response1').first().json.follow_up_minutes || 30) * 60000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "9ff25e1c-700f-44a1-bbe0-0d35856b70c6",
+      "name": "Mark In Progress",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        1536
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "tasks",
+        "filterType": "string",
+        "filterString": "=id=eq.{{ $('Parse AI Response1').first().json.task_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldValue": "deleted"
+            }
+          ]
+        }
+      },
+      "id": "da0454e8-fabe-48ae-a04c-6eaf8cc0996a",
+      "name": "Soft Delete",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        1696
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "tasks",
+        "filterType": "string",
+        "filterString": "=id=eq.{{ $('Parse AI Response1').first().json.task_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldValue": "={{ $('Parse AI Response1').first().json.snoozed_until }}"
+            }
+          ]
+        }
+      },
+      "id": "1865cd3e-c579-422c-940d-f5a98f90da68",
+      "name": "Snooze Task",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        1824
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4s82CraYvryzMJHv",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ reply: $('Parse AI Response1').first().json.reply, done: false }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b8da290f-cf33-4b95-a491-0bb0ced5a0e6",
+      "name": "Respond Clarify/Suggest",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1536,
+        1984
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a task management assistant. The user wants to clear tasks from their list. This could mean:\n1. They completed a task and want to mark it done\n2. They want you to suggest a task they can do right now\n3. They want to delete a task they no longer need\n\nConversation so far:\n{{ JSON.stringify($json.history || []) }}\n\nUser's latest message:\n\"{{ $json.message }}\"\n\nTheir active tasks:\n{{ JSON.stringify($json.active_tasks) }}\n\nRespond with ONLY valid JSON (no markdown fences):\n\nIf the user is marking a task complete:\n{\"action\": \"complete\", \"task_id\": \"<uuid>\", \"reply\": \"<confirmation message>\"}\n\nIf the user says they're ABOUT to do a task (not done yet):\n{\"action\": \"start\", \"task_id\": \"<uuid>\", \"follow_up_minutes\": <number>, \"reply\": \"<encouraging message, mention you'll check back>\"}\n\nIf the user wants to delete a task:\n{\"action\": \"delete\", \"task_id\": \"<uuid>\", \"reply\": \"<confirmation message>\"}\n\nIf the user wants to snooze a task (hide it for a period):\n{\"action\": \"snooze\", \"task_id\": \"<uuid>\", \"snoozed_until\": \"<ISO 8601 datetime>\", \"reply\": \"<confirmation message>\"}\n\nIf the user wants a suggestion for what to do now:\n{\"action\": \"suggest\", \"task_id\": \"<uuid>\", \"reply\": \"<friendly suggestion explaining why this task is a good fit right now, considering urgency, importance, due dates, and estimated time>\"}\n\nIf you need clarification (e.g. which task they mean, or their intent is unclear):\n{\"action\": \"clarify\", \"reply\": \"<your question>\"}\n\nRules:\n- Match tasks by title fuzzy-matching — the user might not say the exact title\n- If multiple tasks could match, ask which one they mean\n- When suggesting a task, use Eisenhower matrix logic: urgent+important first, then important, then urgent, then everything else. Factor in due dates.\n- Be concise and friendly\n- For 'start' action, set follow_up_minutes to the task's estimated_minutes (or 30 if unknown)",
+        "options": {}
+      },
+      "id": "b01614ee-9d7c-47d7-bd79-5da81bc65c87",
+      "name": "AI Agent1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        720,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let parsed;\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(text);\n} catch (e) {\n  const fallback = $input.first().json.output || $input.first().json.text || 'Could you tell me more?';\n  return [{ json: { reply: fallback, done: false, action: 'clarify' } }];\n}\n\nreturn [{ json: {\n  action: parsed.action,\n  task_id: parsed.task_id || null,\n  follow_up_minutes: parsed.follow_up_minutes || null,\n  snoozed_until: parsed.snoozed_until || null,\n  reply: parsed.reply,\n  done: parsed.action !== 'clarify' && parsed.action !== 'suggest'\n} }];"
+      },
+      "id": "b7c70a07-9bd4-4bc6-a75e-fc04f03152fb",
+      "name": "Parse AI Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ reply: $('Parse AI Response1').first().json.reply, done: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "ac4b6acc-48ff-454a-a3c2-020e896a8ac4",
+      "name": "Respond Done1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1776,
+        1536
+      ]
+    }
+  ],
+  "pinData": {
+    "Execute Workflow Trigger": [
+      {
+        "json": {
+          "telegram_chat_id": "564363669",
+          "message_text": "Hey! This is a test notification from Zen Tasks."
+        }
+      }
+    ],
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "message": "Buy groceries tomorrow pretty urgent, and also book a dentist appointment for next week",
+            "history": []
+          }
+        }
+      }
+    ],
+    "Webhook2": [
+      {
+        "json": {
+          "body": {
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "status": "pending"
+          }
+        }
+      }
+    ],
+    "Webhook1": [
+      {
+        "json": {
+          "body": {
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "message": "I finished buying groceries",
+            "history": []
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Tasks": {
+      "main": [
+        [
+          {
+            "node": "Wrap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook2": {
+      "main": [
+        [
+          {
+            "node": "Fetch Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron": {
+      "main": [
+        [
+          {
+            "node": "Fetch Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Users": {
+      "main": [
+        [
+          {
+            "node": "Google Calendar FreeBusy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar FreeBusy": {
+      "main": [
+        [
+          {
+            "node": "Find Free Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Free Slots": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Tasks1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Match Task to Slot": {
+      "main": [
+        [
+          {
+            "node": "Prepare Nudge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Nudge": {
+      "main": [
+        [
+          {
+            "node": "Insert Nudge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Nudge": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Active Tasks1": {
+      "main": [
+        [
+          {
+            "node": "Combine Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Data1": {
+      "main": [
+        [
+          {
+            "node": "AI Match Task to Slot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Task Created?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task Created?": {
+      "main": [
+        [
+          {
+            "node": "Split Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Clarify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Tasks": {
+      "main": [
+        [
+          {
+            "node": "Supabase Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Insert": {
+      "main": [
+        [
+          {
+            "node": "Respond Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Match Task to Slot",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Active Tasks": {
+      "main": [
+        [
+          {
+            "node": "Combine Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Action": {
+      "main": [
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark In Progress",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Soft Delete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Snooze Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Clarify/Suggest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Clarify/Suggest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Snooze Task": {
+      "main": [
+        [
+          {
+            "node": "Respond Done1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Complete": {
+      "main": [
+        [
+          {
+            "node": "Respond Done1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark In Progress": {
+      "main": [
+        [
+          {
+            "node": "Respond Done1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Soft Delete": {
+      "main": [
+        [
+          {
+            "node": "Respond Done1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response1": {
+      "main": [
+        [
+          {
+            "node": "Switch Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f35d64b1-635f-4f6f-ba49-b0fd8d2c424c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "03e6356d3582387503a8131e05db6036191e4888abcbc21044d7dfc50d3c0d27"
+  },
+  "id": "tmyIuQyV20siCZ5q",
+  "tags": [
+    {
+      "updatedAt": "2026-02-14T00:08:32.653Z",
+      "createdAt": "2026-02-14T00:08:32.653Z",
+      "id": "Q1Sl8ns4P2ZM0m62",
+      "name": "task-app"
+    }
+  ]
+}

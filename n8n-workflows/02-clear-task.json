@@ -11,7 +11,7 @@
         }
       },
       "id": "webhook-clear",
-      "name": "Webhook",
+      "name": "Clear Task Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [220, 300]
@@ -19,14 +19,13 @@
     {
       "parameters": {
         "operation": "getAll",
-        "schema": "public",
-        "table": "tasks",
+        "tableId": "tasks",
         "returnAll": true,
         "filterType": "string",
         "filterString": "=user_id=eq.{{ $json.body.user_id }}&status=in.(pending,in_progress)&order=urgency.desc,importance.desc,created_at.asc"
       },
       "id": "fetch-tasks",
-      "name": "Fetch Active Tasks",
+      "name": "Fetch Tasks for Clearing",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [440, 300],
@@ -39,10 +38,10 @@
     },
     {
       "parameters": {
-        "jsCode": "// Collect active tasks and pass along with webhook data\nconst webhookData = $('Webhook').first().json.body;\nconst tasks = $input.all().map(item => ({\n  id: item.json.id,\n  title: item.json.title,\n  description: item.json.description,\n  urgency: item.json.urgency,\n  importance: item.json.importance,\n  estimated_minutes: item.json.estimated_minutes,\n  due_date: item.json.due_date,\n  location: item.json.location,\n  status: item.json.status,\n  tags: item.json.tags,\n  energy_level: item.json.energy_level\n}));\n\nreturn [{ json: { ...webhookData, active_tasks: tasks } }];"
+        "jsCode": "// Collect active tasks and pass along with webhook data\nconst webhookData = $('Clear Task Webhook').first().json.body;\nconst tasks = $input.all().map(item => ({\n  id: item.json.id,\n  title: item.json.title,\n  description: item.json.description,\n  urgency: item.json.urgency,\n  importance: item.json.importance,\n  estimated_minutes: item.json.estimated_minutes,\n  due_date: item.json.due_date,\n  location: item.json.location,\n  status: item.json.status,\n  tags: item.json.tags,\n  energy_level: item.json.energy_level\n}));\n\nreturn [{ json: { ...webhookData, active_tasks: tasks } }];"
       },
       "id": "code-combine",
-      "name": "Combine Data",
+      "name": "Combine Clear Task Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [660, 300]
@@ -54,7 +53,7 @@
         "options": {}
       },
       "id": "ai-agent",
-      "name": "AI Agent",
+      "name": "Clear Task AI",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [880, 300]
@@ -64,15 +63,104 @@
         "jsCode": "let parsed;\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(text);\n} catch (e) {\n  const fallback = $input.first().json.output || $input.first().json.text || 'Could you tell me more?';\n  return [{ json: { reply: fallback, done: false, action: 'clarify' } }];\n}\n\nreturn [{ json: {\n  action: parsed.action,\n  task_id: parsed.task_id || null,\n  follow_up_minutes: parsed.follow_up_minutes || null,\n  snoozed_until: parsed.snoozed_until || null,\n  reply: parsed.reply,\n  done: parsed.action !== 'clarify' && parsed.action !== 'suggest'\n} }];"
       },
       "id": "code-parse",
-      "name": "Parse AI Response",
+      "name": "Parse Clear Task Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1100, 300]
     },
     {
       "parameters": {
-        "mode": "expression",
-        "output": "={{ $json.action }}"
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "complete",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "complete"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "start",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "start"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "delete",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "delete"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "snooze",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "snooze"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "clarify",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "clarify"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "suggest",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "suggest"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
       },
       "id": "switch-action",
       "name": "Switch Action",
@@ -83,19 +171,15 @@
     {
       "parameters": {
         "operation": "update",
-        "schema": "public",
-        "table": "tasks",
-        "filtersUI": {
-          "filterValues": [
-            {
-              "keyName": "id",
-              "keyValue": "={{ $('Parse AI Response').first().json.task_id }}"
-            }
+        "tableId": "tasks",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Parse Clear Task Response').item.json.task_id }}" }
           ]
         },
         "fieldsUi": {
           "fieldValues": [
-            { "fieldName": "status", "fieldValue": "completed" }
+            { "fieldId": "status", "fieldValue": "completed" }
           ]
         }
       },
@@ -114,20 +198,16 @@
     {
       "parameters": {
         "operation": "update",
-        "schema": "public",
-        "table": "tasks",
-        "filtersUI": {
-          "filterValues": [
-            {
-              "keyName": "id",
-              "keyValue": "={{ $('Parse AI Response').first().json.task_id }}"
-            }
+        "tableId": "tasks",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Parse Clear Task Response').item.json.task_id }}" }
           ]
         },
         "fieldsUi": {
           "fieldValues": [
-            { "fieldName": "status", "fieldValue": "in_progress" },
-            { "fieldName": "follow_up_at", "fieldValue": "={{ new Date(Date.now() + ($('Parse AI Response').first().json.follow_up_minutes || 30) * 60000).toISOString() }}" }
+            { "fieldId": "status", "fieldValue": "in_progress" },
+            { "fieldId": "follow_up_at", "fieldValue": "={{ new Date(Date.now() + ($('Parse Clear Task Response').item.json.follow_up_minutes || 30) * 60000).toISOString() }}" }
           ]
         }
       },
@@ -146,19 +226,15 @@
     {
       "parameters": {
         "operation": "update",
-        "schema": "public",
-        "table": "tasks",
-        "filtersUI": {
-          "filterValues": [
-            {
-              "keyName": "id",
-              "keyValue": "={{ $('Parse AI Response').first().json.task_id }}"
-            }
+        "tableId": "tasks",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Parse Clear Task Response').item.json.task_id }}" }
           ]
         },
         "fieldsUi": {
           "fieldValues": [
-            { "fieldName": "status", "fieldValue": "deleted" }
+            { "fieldId": "status", "fieldValue": "deleted" }
           ]
         }
       },
@@ -176,38 +252,16 @@
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ reply: $('Parse AI Response').first().json.reply, done: true }) }}",
-        "options": {
-          "responseHeaders": {
-            "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" }
-            ]
-          }
-        }
-      },
-      "id": "respond-done",
-      "name": "Respond Done",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [1820, 260]
-    },
-    {
-      "parameters": {
         "operation": "update",
-        "schema": "public",
-        "table": "tasks",
-        "filtersUI": {
-          "filterValues": [
-            {
-              "keyName": "id",
-              "keyValue": "={{ $('Parse AI Response').first().json.task_id }}"
-            }
+        "tableId": "tasks",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Parse Clear Task Response').item.json.task_id }}" }
           ]
         },
         "fieldsUi": {
           "fieldValues": [
-            { "fieldName": "snoozed_until", "fieldValue": "={{ $('Parse AI Response').first().json.snoozed_until }}" }
+            { "fieldId": "snoozed_until", "fieldValue": "={{ $('Parse Clear Task Response').item.json.snoozed_until }}" }
           ]
         }
       },
@@ -226,7 +280,25 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ reply: $('Parse AI Response').first().json.reply, done: false }) }}",
+        "responseBody": "={{ JSON.stringify({ reply: $('Parse Clear Task Response').first().json.reply, done: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "respond-done",
+      "name": "Clear Task Done",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1820, 260]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ reply: $('Parse Clear Task Response').first().json.reply, done: false }) }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -236,34 +308,34 @@
         }
       },
       "id": "respond-clarify",
-      "name": "Respond Clarify/Suggest",
+      "name": "Clear Task Clarify",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [1580, 700]
     }
   ],
   "connections": {
-    "Webhook": {
+    "Clear Task Webhook": {
       "main": [
-        [{ "node": "Fetch Active Tasks", "type": "main", "index": 0 }]
+        [{ "node": "Fetch Tasks for Clearing", "type": "main", "index": 0 }]
       ]
     },
-    "Fetch Active Tasks": {
+    "Fetch Tasks for Clearing": {
       "main": [
-        [{ "node": "Combine Data", "type": "main", "index": 0 }]
+        [{ "node": "Combine Clear Task Data", "type": "main", "index": 0 }]
       ]
     },
-    "Combine Data": {
+    "Combine Clear Task Data": {
       "main": [
-        [{ "node": "AI Agent", "type": "main", "index": 0 }]
+        [{ "node": "Clear Task AI", "type": "main", "index": 0 }]
       ]
     },
-    "AI Agent": {
+    "Clear Task AI": {
       "main": [
-        [{ "node": "Parse AI Response", "type": "main", "index": 0 }]
+        [{ "node": "Parse Clear Task Response", "type": "main", "index": 0 }]
       ]
     },
-    "Parse AI Response": {
+    "Parse Clear Task Response": {
       "main": [
         [{ "node": "Switch Action", "type": "main", "index": 0 }]
       ]
@@ -274,28 +346,28 @@
         [{ "node": "Mark In Progress", "type": "main", "index": 0 }],
         [{ "node": "Soft Delete", "type": "main", "index": 0 }],
         [{ "node": "Snooze Task", "type": "main", "index": 0 }],
-        [{ "node": "Respond Clarify/Suggest", "type": "main", "index": 0 }],
-        [{ "node": "Respond Clarify/Suggest", "type": "main", "index": 0 }]
+        [{ "node": "Clear Task Clarify", "type": "main", "index": 0 }],
+        [{ "node": "Clear Task Clarify", "type": "main", "index": 0 }]
       ]
     },
     "Snooze Task": {
       "main": [
-        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+        [{ "node": "Clear Task Done", "type": "main", "index": 0 }]
       ]
     },
     "Mark Complete": {
       "main": [
-        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+        [{ "node": "Clear Task Done", "type": "main", "index": 0 }]
       ]
     },
     "Mark In Progress": {
       "main": [
-        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+        [{ "node": "Clear Task Done", "type": "main", "index": 0 }]
       ]
     },
     "Soft Delete": {
       "main": [
-        [{ "node": "Respond Done", "type": "main", "index": 0 }]
+        [{ "node": "Clear Task Done", "type": "main", "index": 0 }]
       ]
     }
   },

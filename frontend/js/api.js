@@ -4,15 +4,16 @@
 
 const API = {
   /**
-   * Send a message in the "add task" conversation.
-   * The AI may respond with clarifying questions or confirm the task was added.
+   * Send a message to the unified Task Agent.
+   * Handles both adding and clearing/managing tasks.
    * @param {string} message - User's message
    * @param {object[]} history - Conversation history so far
-   * @returns {Promise<object>} { reply, done, task? }
+   * @param {string} mode - 'add' or 'clear' (hint for AI)
+   * @returns {Promise<object>} { replies: [...], done: true/false }
    */
-  async addTask(message, history) {
+  async sendMessage(message, history, mode) {
     const res = await fetch(
-      CONFIG.N8N_BASE_URL + CONFIG.ENDPOINTS.ADD_TASK,
+      CONFIG.N8N_BASE_URL + CONFIG.ENDPOINTS.TASK_AGENT,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -20,30 +21,7 @@ const API = {
           user_id: CONFIG.USER_ID,
           message,
           history,
-        }),
-      }
-    );
-    if (!res.ok) throw new Error('Failed to send message');
-    return res.json();
-  },
-
-  /**
-   * Send a message in the "clear task" conversation.
-   * AI determines intent: complete, suggest, or delete.
-   * @param {string} message - User's message
-   * @param {object[]} history - Conversation history so far
-   * @returns {Promise<object>} { reply, done, action?, task? }
-   */
-  async clearTask(message, history) {
-    const res = await fetch(
-      CONFIG.N8N_BASE_URL + CONFIG.ENDPOINTS.CLEAR_TASK,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: CONFIG.USER_ID,
-          message,
-          history,
+          mode,
         }),
       }
     );
