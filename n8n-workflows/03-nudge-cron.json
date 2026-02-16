@@ -63,6 +63,46 @@
     },
     {
       "parameters": {
+        "jsCode": "// Check if user's nudges are paused\nconst user = $input.first().json;\nconst pausedUntil = user.nudge_paused_until;\n\nif (pausedUntil && new Date(pausedUntil) > new Date()) {\n  return []; // Nudges paused, skip this user\n}\n\nreturn [{ json: user }];"
+      },
+      "id": "check-eligibility",
+      "name": "Check Nudge Eligibility",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "nudges",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "=user_id=eq.{{ $json.id }}&created_at=gte.{{ new Date(new Date().setHours(0,0,0,0)).toISOString() }}&order=created_at.desc"
+      },
+      "id": "fetch-todays-nudges",
+      "name": "Fetch Today's Nudges",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [880, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Evaluate nudge history to decide if we should send another\nconst user = $('Check Nudge Eligibility').first().json;\nconst todaysNudges = $input.all().map(item => item.json);\n\n// Count unanswered nudges (sent but no response)\nconst unanswered = todaysNudges.filter(n => n.status === 'sent' && !n.responded_at);\nconst unansweredCount = unanswered.length;\n\n// Max 2 unanswered nudges per day\nif (unansweredCount >= 2) {\n  return []; // Too many unanswered, stop\n}\n\n// If 1 unanswered, require 60-minute gap since last nudge\nif (unansweredCount === 1 && todaysNudges.length > 0) {\n  const lastNudgeTime = new Date(todaysNudges[0].created_at);\n  const minutesSince = (Date.now() - lastNudgeTime.getTime()) / 60000;\n  if (minutesSince < 60) {\n    return []; // Too soon after unanswered nudge\n  }\n}\n\n// If recent nudge had 'busy' sentiment, skip\nif (todaysNudges.length > 0 && todaysNudges[0].ai_sentiment === 'busy') {\n  return []; // User said they're busy\n}\n\n// Build nudge context for AI prompt\nconst nudgeContext = {\n  unanswered_count: unansweredCount,\n  total_today: todaysNudges.length,\n  last_nudge: todaysNudges.length > 0 ? {\n    message: todaysNudges[0].message_text,\n    sent_at: todaysNudges[0].created_at,\n    status: todaysNudges[0].status,\n    sentiment: todaysNudges[0].ai_sentiment\n  } : null,\n  is_first_of_day: todaysNudges.length === 0\n};\n\nreturn [{\n  json: {\n    ...user,\n    nudge_context: nudgeContext\n  }\n}];"
+      },
+      "id": "evaluate-nudge-history",
+      "name": "Evaluate Nudge History",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://www.googleapis.com/calendar/v3/freeBusy",
         "sendBody": true,
@@ -74,7 +114,7 @@
       "name": "Google Calendar FreeBusy",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [660, 300],
+      "position": [1320, 300],
       "credentials": {
         "googleCalendarOAuth2Api": {
           "id": "GOOGLE_CALENDAR_CREDENTIAL_ID",
@@ -84,13 +124,13 @@
     },
     {
       "parameters": {
-        "jsCode": "// Find free slots >= 15 min in the next 2 hours\nconst user = $('Fetch Users').first().json;\nconst calData = $input.first().json;\nconst busySlots = calData?.calendars?.primary?.busy || [];\n\nconst now = new Date();\nconst windowEnd = new Date(now.getTime() + 2 * 60 * 60 * 1000);\n\n// Build free slots by subtracting busy from window\nconst freeSlots = [];\nlet cursor = now;\n\nfor (const busy of busySlots) {\n  const busyStart = new Date(busy.start);\n  const busyEnd = new Date(busy.end);\n\n  if (cursor < busyStart) {\n    const durationMin = (busyStart - cursor) / 60000;\n    if (durationMin >= 15) {\n      freeSlots.push({\n        start: cursor.toISOString(),\n        end: busyStart.toISOString(),\n        duration_minutes: Math.round(durationMin)\n      });\n    }\n  }\n  if (busyEnd > cursor) cursor = busyEnd;\n}\n\n// Remaining time after last busy block\nif (cursor < windowEnd) {\n  const durationMin = (windowEnd - cursor) / 60000;\n  if (durationMin >= 15) {\n    freeSlots.push({\n      start: cursor.toISOString(),\n      end: windowEnd.toISOString(),\n      duration_minutes: Math.round(durationMin)\n    });\n  }\n}\n\nif (freeSlots.length === 0) {\n  return []; // No free time, stop here\n}\n\nreturn [{\n  json: {\n    user_id: user.id,\n    telegram_chat_id: user.telegram_chat_id,\n    timezone: user.timezone,\n    free_slots: freeSlots\n  }\n}];"
+        "jsCode": "// Find free slots >= 15 min in the next 2 hours\nconst user = $('Evaluate Nudge History').first().json;\nconst calData = $input.first().json;\nconst busySlots = calData?.calendars?.primary?.busy || [];\n\nconst now = new Date();\nconst windowEnd = new Date(now.getTime() + 2 * 60 * 60 * 1000);\n\n// Build free slots by subtracting busy from window\nconst freeSlots = [];\nlet cursor = now;\n\nfor (const busy of busySlots) {\n  const busyStart = new Date(busy.start);\n  const busyEnd = new Date(busy.end);\n\n  if (cursor < busyStart) {\n    const durationMin = (busyStart - cursor) / 60000;\n    if (durationMin >= 15) {\n      freeSlots.push({\n        start: cursor.toISOString(),\n        end: busyStart.toISOString(),\n        duration_minutes: Math.round(durationMin)\n      });\n    }\n  }\n  if (busyEnd > cursor) cursor = busyEnd;\n}\n\n// Remaining time after last busy block\nif (cursor < windowEnd) {\n  const durationMin = (windowEnd - cursor) / 60000;\n  if (durationMin >= 15) {\n    freeSlots.push({\n      start: cursor.toISOString(),\n      end: windowEnd.toISOString(),\n      duration_minutes: Math.round(durationMin)\n    });\n  }\n}\n\nif (freeSlots.length === 0) {\n  return []; // No free time, stop here\n}\n\nreturn [{\n  json: {\n    user_id: user.id,\n    telegram_chat_id: user.telegram_chat_id,\n    timezone: user.timezone,\n    nudge_context: user.nudge_context,\n    free_slots: freeSlots\n  }\n}];"
       },
       "id": "code-free-slots",
       "name": "Find Free Slots",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 300]
+      "position": [1540, 300]
     },
     {
       "parameters": {
@@ -104,7 +144,7 @@
       "name": "Fetch Tasks for Nudge",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1100, 300],
+      "position": [1760, 300],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -114,25 +154,25 @@
     },
     {
       "parameters": {
-        "jsCode": "// Combine free slots + tasks for AI matching\nconst freeSlotData = $('Find Free Slots').first().json;\nconst tasks = $input.all().map(item => item.json);\n\nif (tasks.length === 0) return []; // No tasks, stop\n\nreturn [{\n  json: {\n    ...freeSlotData,\n    tasks: tasks\n  }\n}];"
+        "jsCode": "// Combine free slots + tasks + nudge context for AI matching\nconst freeSlotData = $('Find Free Slots').first().json;\nconst tasks = $input.all().map(item => item.json);\n\nif (tasks.length === 0) return []; // No tasks, stop\n\nreturn [{\n  json: {\n    ...freeSlotData,\n    tasks: tasks\n  }\n}];"
       },
       "id": "code-combine",
       "name": "Combine Nudge Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 300]
+      "position": [1980, 300]
     },
     {
       "parameters": {
         "promptType": "define",
-        "text": "=You are a productivity assistant. Given a user's free calendar slots and their active tasks, pick the single best task to suggest for the nearest free slot.\n\nFree slots:\n{{ JSON.stringify($json.free_slots) }}\n\nActive tasks:\n{{ JSON.stringify($json.tasks.map(t => ({ id: t.id, title: t.title, urgency: t.urgency, importance: t.importance, due_date: t.due_date, estimated_minutes: t.estimated_minutes, location: t.location, energy_level: t.energy_level, depends_on: t.depends_on }))) }}\n\nRules:\n- Use Eisenhower matrix: urgent+important first, then important, then urgent\n- Prefer tasks with approaching due dates\n- Match task estimated_minutes to slot duration when possible\n- Consider energy_level vs time of day\n- Don't suggest tasks that depend on incomplete tasks\n- If no good match, pick the highest urgency+importance task\n\nReturn ONLY valid JSON:\n{\n  \"task_id\": \"<uuid>\",\n  \"task_title\": \"<title>\",\n  \"slot\": { \"start\": \"<iso>\", \"end\": \"<iso>\" },\n  \"message\": \"<friendly 1-2 sentence nudge message for Telegram>\"\n}\n\nJSON only, no markdown fences:",
+        "text": "=You are a productivity assistant. Given a user's free calendar slots and their active tasks, pick the single best task to suggest for the nearest free slot.\n\nFree slots:\n{{ JSON.stringify($json.free_slots) }}\n\nActive tasks:\n{{ JSON.stringify($json.tasks.map(t => ({ id: t.id, title: t.title, urgency: t.urgency, importance: t.importance, due_date: t.due_date, estimated_minutes: t.estimated_minutes, location: t.location, energy_level: t.energy_level, depends_on: t.depends_on }))) }}\n\nNudge context for today:\n{{ JSON.stringify($json.nudge_context) }}\n\nRules:\n- Use Eisenhower matrix: urgent+important first, then important, then urgent\n- Prefer tasks with approaching due dates\n- Match task estimated_minutes to slot duration when possible\n- Consider energy_level vs time of day\n- Don't suggest tasks that depend on incomplete tasks\n- If no good match, pick the highest urgency+importance task\n\nTone rules based on nudge context:\n- If is_first_of_day is true: be warm and encouraging (e.g. \"Good morning! How about...\")\n- If unanswered_count is 1: be gentler and less pushy, acknowledge they might be busy\n- If last nudge exists: vary your messaging style from the previous nudge message\n- Always keep it friendly and brief (1-2 sentences)\n\nReturn ONLY valid JSON:\n{\n  \"task_id\": \"<uuid>\",\n  \"task_title\": \"<title>\",\n  \"slot\": { \"start\": \"<iso>\", \"end\": \"<iso>\" },\n  \"message\": \"<friendly 1-2 sentence nudge message for Telegram>\"\n}\n\nJSON only, no markdown fences:",
         "options": {}
       },
       "id": "ai-match-task",
       "name": "AI Match Task to Slot",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [1540, 300]
+      "position": [2200, 300]
     },
     {
       "parameters": {
@@ -142,7 +182,7 @@
       "name": "Prepare Nudge",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, 300]
+      "position": [2420, 300]
     },
     {
       "parameters": {
@@ -164,13 +204,23 @@
       "name": "Insert Nudge",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1980, 300],
+      "position": [2640, 300],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
           "name": "Supabase"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass nudge_id from the inserted record to the notification sub-workflow\nconst nudge = $input.first().json;\nconst prepData = $('Prepare Nudge').first().json;\n\nreturn [{\n  json: {\n    nudge_id: nudge.id,\n    telegram_chat_id: prepData.telegram_chat_id,\n    message_text: prepData.message_text,\n    title: prepData.title,\n    body: prepData.body\n  }\n}];"
+      },
+      "id": "code-pass-nudge-id",
+      "name": "Pass Nudge ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2860, 300]
     },
     {
       "parameters": {
@@ -185,7 +235,7 @@
       "name": "Send Notification",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [2200, 300]
+      "position": [3080, 300]
     }
   ],
   "connections": {
@@ -195,6 +245,21 @@
       ]
     },
     "Fetch Users": {
+      "main": [
+        [{ "node": "Check Nudge Eligibility", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Nudge Eligibility": {
+      "main": [
+        [{ "node": "Fetch Today's Nudges", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Today's Nudges": {
+      "main": [
+        [{ "node": "Evaluate Nudge History", "type": "main", "index": 0 }]
+      ]
+    },
+    "Evaluate Nudge History": {
       "main": [
         [{ "node": "Google Calendar FreeBusy", "type": "main", "index": 0 }]
       ]
@@ -230,6 +295,11 @@
       ]
     },
     "Insert Nudge": {
+      "main": [
+        [{ "node": "Pass Nudge ID", "type": "main", "index": 0 }]
+      ]
+    },
+    "Pass Nudge ID": {
       "main": [
         [{ "node": "Send Notification", "type": "main", "index": 0 }]
       ]

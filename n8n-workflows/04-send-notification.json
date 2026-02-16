@@ -14,7 +14,8 @@
         "chatId": "={{ $json.telegram_chat_id }}",
         "text": "={{ $json.message_text }}",
         "additionalFields": {
-          "parse_mode": "Markdown"
+          "parse_mode": "Markdown",
+          "reply_markup": "={{ JSON.stringify({ inline_keyboard: [[ { text: '\\u2705 On it!', callback_data: 'accept_' + $json.nudge_id }, { text: '\\u23f0 Snooze 1h', callback_data: 'snooze_' + $json.nudge_id }, { text: '\\ud83d\\udeab Busy today', callback_data: 'busy_' + $json.nudge_id } ]] }) }}"
         }
       },
       "id": "telegram-send",
@@ -28,12 +29,42 @@
           "name": "Telegram Bot"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "nudges",
+        "matchingColumns": ["id"],
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "id", "fieldValue": "={{ $('Notification Trigger').first().json.nudge_id }}" },
+            { "fieldId": "telegram_msg_id", "fieldValue": "={{ String($json.result?.message_id || $json.message_id || '') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "store-msg-id",
+      "name": "Store Telegram Msg ID",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [660, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
     }
   ],
   "connections": {
     "Notification Trigger": {
       "main": [
         [{ "node": "Send Telegram", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Telegram": {
+      "main": [
+        [{ "node": "Store Telegram Msg ID", "type": "main", "index": 0 }]
       ]
     }
   },

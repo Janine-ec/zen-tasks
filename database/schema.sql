@@ -29,13 +29,14 @@ $$ LANGUAGE plpgsql;
 -- 3. users
 -- ---------------------------------------------------------
 CREATE TABLE users (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  display_name     TEXT NOT NULL,
-  email            TEXT UNIQUE,
-  telegram_chat_id TEXT,
-  timezone         TEXT NOT NULL DEFAULT 'UTC',
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  display_name        TEXT NOT NULL,
+  email               TEXT UNIQUE,
+  telegram_chat_id    TEXT,
+  timezone            TEXT NOT NULL DEFAULT 'UTC',
+  nudge_paused_until  TIMESTAMPTZ,           -- suppress nudges until this time
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TRIGGER users_updated_at
@@ -98,18 +99,23 @@ CREATE TRIGGER tasks_updated_at
 -- 5. nudges
 -- ---------------------------------------------------------
 CREATE TABLE nudges (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  task_id       UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  channel       nudge_channel NOT NULL DEFAULT 'telegram',
-  message_text  TEXT NOT NULL,
-  calendar_slot JSONB,
-  status        nudge_status  NOT NULL DEFAULT 'sent',
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  task_id          UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  channel          nudge_channel NOT NULL DEFAULT 'telegram',
+  message_text     TEXT NOT NULL,
+  calendar_slot    JSONB,
+  status           nudge_status  NOT NULL DEFAULT 'sent',
+  responded_at     TIMESTAMPTZ,              -- when user replied
+  response_text    TEXT,                      -- what they said
+  ai_sentiment     TEXT,                      -- positive/neutral/busy/dismissive
+  telegram_msg_id  TEXT,                      -- for matching Telegram replies back to nudges
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_nudges_user_status ON nudges(user_id, status);
+CREATE INDEX idx_nudges_user_status  ON nudges(user_id, status);
+CREATE INDEX idx_nudges_user_created ON nudges(user_id, created_at DESC);
 
 CREATE TRIGGER nudges_updated_at
   BEFORE UPDATE ON nudges
@@ -156,3 +162,22 @@ CREATE POLICY "notifications_all" ON notifications FOR ALL USING (true) WITH CHE
 -- REALTIME (enable for notifications table)
 -- =============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+
+
+-- =============================================================
+-- MIGRATION: Smart Nudge System (run in Supabase SQL Editor)
+-- =============================================================
+
+-- Add nudge response tracking columns
+ALTER TABLE nudges ADD COLUMN IF NOT EXISTS responded_at    TIMESTAMPTZ;
+ALTER TABLE nudges ADD COLUMN IF NOT EXISTS response_text   TEXT;
+ALTER TABLE nudges ADD COLUMN IF NOT EXISTS ai_sentiment    TEXT;
+ALTER TABLE nudges ADD COLUMN IF NOT EXISTS telegram_msg_id TEXT;
+
+-- Add nudge pause to users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nudge_paused_until TIMESTAMPTZ;
+
+-- Index for efficient nudge history lookups
+CREATE INDEX IF NOT EXISTS idx_nudges_user_created
+  ON nudges(user_id, created_at DESC)
+  WHERE created_at > NOW() - INTERVAL '24 hours';

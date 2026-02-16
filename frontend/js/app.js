@@ -149,8 +149,12 @@
     chatTitle.textContent = mode === 'add' ? 'Add a task' : 'Clear a task';
     chatInput.placeholder = PLACEHOLDERS[mode];
 
+    // Reset any keyboard-adjusted height before switching view
+    views.chat.style.height = '';
+    views.chat.style.minHeight = '';
+
     showView('chat');
-    chatInput.focus();
+    setTimeout(() => chatInput.focus(), 100);
   }
 
   function addAIMessage(text) {
@@ -246,6 +250,35 @@
     chatVoice.style.opacity = '0.3';
     chatVoice.style.cursor = 'default';
   }
+
+  // =============================================================
+  // MOBILE KEYBOARD HANDLING (visualViewport API)
+  // =============================================================
+  (function initKeyboardHandler() {
+    if (!window.visualViewport) return;
+
+    const chatView = views.chat;
+
+    window.visualViewport.addEventListener('resize', () => {
+      if (!chatView.classList.contains('active')) return;
+
+      const keyboardHeight = window.innerHeight - window.visualViewport.height;
+
+      if (keyboardHeight > 50) {
+        chatView.style.height = window.visualViewport.height + 'px';
+        chatView.style.minHeight = window.visualViewport.height + 'px';
+        scrollChat();
+      } else {
+        chatView.style.height = '';
+        chatView.style.minHeight = '';
+      }
+    });
+
+    window.visualViewport.addEventListener('scroll', () => {
+      if (!chatView.classList.contains('active')) return;
+      window.scrollTo(0, 0);
+    });
+  })();
 
   // =============================================================
   // TASKS LIST

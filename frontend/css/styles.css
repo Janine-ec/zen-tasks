@@ -353,7 +353,7 @@ body.dark .home-btn-clear .home-btn-icon { background: #1a3a2a; }
 /* =============================================================
    CHAT VIEW
    ============================================================= */
-#chat-view { padding: 0; }
+#chat-view { padding: 0; transition: height 0.1s ease; }
 
 .chat-header {
   display: flex;
@@ -456,7 +456,7 @@ body.dark .home-btn-clear .home-btn-icon { background: #1a3a2a; }
 .chat-input-bar textarea {
   flex: 1;
   padding: 12px 16px;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-family: inherit;
   border: none;
   border-radius: var(--radius);

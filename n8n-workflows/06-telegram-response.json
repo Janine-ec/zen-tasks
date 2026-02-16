@@ -1,0 +1,367 @@
+{
+  "name": "06 - Telegram Response Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["callback_query", "message"]
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [220, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [],
+          "string": [
+            {
+              "value1": "={{ $json.callback_query ? 'callback' : 'message' }}",
+              "value2": "callback"
+            }
+          ]
+        }
+      },
+      "id": "route-type",
+      "name": "Is Callback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse callback button press\nconst cb = $input.first().json.callback_query;\nconst data = cb.data; // e.g. accept_<nudge_id>, snooze_<nudge_id>, busy_<nudge_id>\nconst chatId = String(cb.message.chat.id);\nconst parts = data.split('_');\nconst action = parts[0];\nconst nudgeId = parts.slice(1).join('_');\n\nlet sentiment, status, pauseUntil;\n\nswitch (action) {\n  case 'accept':\n    sentiment = 'positive';\n    status = 'accepted';\n    break;\n  case 'snooze':\n    sentiment = 'neutral';\n    status = 'dismissed';\n    break;\n  case 'busy':\n    sentiment = 'busy';\n    status = 'dismissed';\n    // Pause until 9pm today\n    const today9pm = new Date();\n    today9pm.setHours(21, 0, 0, 0);\n    if (today9pm <= new Date()) {\n      // Already past 9pm, pause until tomorrow 9pm\n      today9pm.setDate(today9pm.getDate() + 1);\n    }\n    pauseUntil = today9pm.toISOString();\n    break;\n  default:\n    return [];\n}\n\nconst ackMessages = {\n  accept: \"Awesome, you've got this! \\ud83d\\udcaa\",\n  snooze: \"No worries, I'll check back in an hour \\u23f0\",\n  busy: \"Got it! I'll leave you alone for the rest of today \\ud83d\\ude0c\"\n};\n\nreturn [{\n  json: {\n    nudge_id: nudgeId,\n    chat_id: chatId,\n    callback_id: cb.id,\n    action: action,\n    sentiment: sentiment,\n    nudge_status: status,\n    pause_until: pauseUntil || null,\n    ack_message: ackMessages[action]\n  }\n}];"
+      },
+      "id": "parse-callback",
+      "name": "Parse Callback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "nudges",
+        "matchingColumns": ["id"],
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "id", "fieldValue": "={{ $json.nudge_id }}" },
+            { "fieldId": "status", "fieldValue": "={{ $json.nudge_status }}" },
+            { "fieldId": "responded_at", "fieldValue": "={{ new Date().toISOString() }}" },
+            { "fieldId": "ai_sentiment", "fieldValue": "={{ $json.sentiment }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "update-nudge-callback",
+      "name": "Update Nudge (Callback)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [880, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [],
+          "string": [
+            {
+              "value1": "={{ $('Parse Callback').first().json.pause_until }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "check-pause-needed",
+      "name": "Needs Pause?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "users",
+        "matchingColumns": ["telegram_chat_id"],
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "telegram_chat_id", "fieldValue": "={{ $('Parse Callback').first().json.chat_id }}" },
+            { "fieldId": "nudge_paused_until", "fieldValue": "={{ $('Parse Callback').first().json.pause_until }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pause-nudges-callback",
+      "name": "Pause Nudges (Callback)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1320, 150],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Parse Callback').first().json.chat_id }}",
+        "text": "={{ $('Parse Callback').first().json.ack_message }}",
+        "additionalFields": {}
+      },
+      "id": "ack-callback",
+      "name": "Acknowledge (Callback)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1540, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract free-text reply info\nconst msg = $input.first().json.message;\nconst chatId = String(msg.chat.id);\nconst text = msg.text || '';\nconst replyToMsgId = msg.reply_to_message?.message_id ? String(msg.reply_to_message.message_id) : null;\n\nreturn [{\n  json: {\n    chat_id: chatId,\n    text: text,\n    reply_to_msg_id: replyToMsgId\n  }\n}];"
+      },
+      "id": "extract-message",
+      "name": "Extract Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 400]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "nudges",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "=status=eq.sent&responded_at=is.null&order=created_at.desc&limit=1"
+      },
+      "id": "find-recent-nudge",
+      "name": "Find Recent Nudge",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [880, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Match reply to a nudge - prefer telegram_msg_id match, fall back to most recent\nconst msgData = $('Extract Message').first().json;\nconst nudges = $input.all().map(item => item.json);\n\nif (nudges.length === 0) {\n  return []; // No unresponded nudge to match, ignore message\n}\n\nlet matchedNudge = nudges[0]; // Default: most recent\n\n// If replying to a specific message, try to match by telegram_msg_id\nif (msgData.reply_to_msg_id) {\n  const byMsgId = nudges.find(n => n.telegram_msg_id === msgData.reply_to_msg_id);\n  if (byMsgId) matchedNudge = byMsgId;\n}\n\nreturn [{\n  json: {\n    nudge_id: matchedNudge.id,\n    nudge_user_id: matchedNudge.user_id,\n    chat_id: msgData.chat_id,\n    response_text: msgData.text\n  }\n}];"
+      },
+      "id": "match-nudge",
+      "name": "Match to Nudge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 400]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Classify the sentiment of this user's reply to a task nudge.\n\nUser's reply: \"{{ $json.response_text }}\"\n\nClassify as exactly one of: positive, neutral, busy, dismissive\n\nAlso determine if nudges should be paused and for how long:\n- If busy/dismissive: suggest a pause duration in hours (1-12)\n- If positive/neutral: pause_hours should be 0\n\nReturn ONLY valid JSON:\n{\n  \"sentiment\": \"<positive|neutral|busy|dismissive>\",\n  \"pause_hours\": <number>,\n  \"brief_ack\": \"<friendly 1 sentence acknowledgment to send back>\"\n}\n\nJSON only, no markdown fences:",
+        "options": {}
+      },
+      "id": "ai-sentiment",
+      "name": "AI Sentiment Analysis",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1320, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI sentiment and prepare updates\nconst nudgeData = $('Match to Nudge').first().json;\nlet aiResult;\n\ntry {\n  let text = $input.first().json.output || $input.first().json.text || '';\n  text = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  aiResult = JSON.parse(text);\n} catch (e) {\n  aiResult = { sentiment: 'neutral', pause_hours: 0, brief_ack: 'Got it, thanks!' };\n}\n\nlet pauseUntil = null;\nif (aiResult.pause_hours > 0) {\n  pauseUntil = new Date(Date.now() + aiResult.pause_hours * 3600000).toISOString();\n}\n\nreturn [{\n  json: {\n    nudge_id: nudgeData.nudge_id,\n    nudge_user_id: nudgeData.nudge_user_id,\n    chat_id: nudgeData.chat_id,\n    response_text: nudgeData.response_text,\n    sentiment: aiResult.sentiment,\n    pause_until: pauseUntil,\n    ack_message: aiResult.brief_ack\n  }\n}];"
+      },
+      "id": "prepare-text-update",
+      "name": "Prepare Text Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "nudges",
+        "matchingColumns": ["id"],
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "id", "fieldValue": "={{ $json.nudge_id }}" },
+            { "fieldId": "responded_at", "fieldValue": "={{ new Date().toISOString() }}" },
+            { "fieldId": "response_text", "fieldValue": "={{ $json.response_text }}" },
+            { "fieldId": "ai_sentiment", "fieldValue": "={{ $json.sentiment }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "update-nudge-text",
+      "name": "Update Nudge (Text)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1760, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [],
+          "string": [
+            {
+              "value1": "={{ $('Prepare Text Update').first().json.pause_until }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "check-text-pause",
+      "name": "Needs Pause? (Text)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1980, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "users",
+        "matchingColumns": ["id"],
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "id", "fieldValue": "={{ $('Prepare Text Update').first().json.nudge_user_id }}" },
+            { "fieldId": "nudge_paused_until", "fieldValue": "={{ $('Prepare Text Update').first().json.pause_until }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pause-nudges-text",
+      "name": "Pause Nudges (Text)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2200, 350],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare Text Update').first().json.chat_id }}",
+        "text": "={{ $('Prepare Text Update').first().json.ack_message }}",
+        "additionalFields": {}
+      },
+      "id": "ack-text",
+      "name": "Acknowledge (Text)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2420, 400],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [{ "node": "Is Callback?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Callback?": {
+      "main": [
+        [{ "node": "Parse Callback", "type": "main", "index": 0 }],
+        [{ "node": "Extract Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Callback": {
+      "main": [
+        [{ "node": "Update Nudge (Callback)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Nudge (Callback)": {
+      "main": [
+        [{ "node": "Needs Pause?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Needs Pause?": {
+      "main": [
+        [{ "node": "Pause Nudges (Callback)", "type": "main", "index": 0 }],
+        [{ "node": "Acknowledge (Callback)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Pause Nudges (Callback)": {
+      "main": [
+        [{ "node": "Acknowledge (Callback)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extract Message": {
+      "main": [
+        [{ "node": "Find Recent Nudge", "type": "main", "index": 0 }]
+      ]
+    },
+    "Find Recent Nudge": {
+      "main": [
+        [{ "node": "Match to Nudge", "type": "main", "index": 0 }]
+      ]
+    },
+    "Match to Nudge": {
+      "main": [
+        [{ "node": "AI Sentiment Analysis", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Sentiment Analysis": {
+      "main": [
+        [{ "node": "Prepare Text Update", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Text Update": {
+      "main": [
+        [{ "node": "Update Nudge (Text)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Nudge (Text)": {
+      "main": [
+        [{ "node": "Needs Pause? (Text)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Needs Pause? (Text)": {
+      "main": [
+        [{ "node": "Pause Nudges (Text)", "type": "main", "index": 0 }],
+        [{ "node": "Acknowledge (Text)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Pause Nudges (Text)": {
+      "main": [
+        [{ "node": "Acknowledge (Text)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "task-app" }]
+}
