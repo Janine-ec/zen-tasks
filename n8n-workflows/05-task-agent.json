@@ -48,15 +48,44 @@
     },
     {
       "parameters": {
+        "method": "GET",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin={{ new Date().toISOString() }}&timeMax={{ new Date(Date.now() + 60*24*60*60*1000).toISOString() }}&singleEvents=true&orderBy=startTime&maxResults=50",
+        "options": {}
+      },
+      "id": "fetch-calendar",
+      "name": "Fetch Calendar Events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 300],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "GOOGLE_CALENDAR_CREDENTIAL_ID",
+          "name": "Google Calendar"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $('Prepare AI Context').first().json;\nconst calResponse = $input.first().json;\n\n// Extract calendar events (gracefully handle failures)\nconst calendarEvents = (calResponse.items || []).map(e => ({\n  summary: e.summary || '(no title)',\n  start: e.start?.dateTime || e.start?.date || null,\n  end: e.end?.dateTime || e.end?.date || null,\n  location: e.location || null,\n  allDay: !!e.start?.date\n}));\n\n// Build time context\nconst now = new Date();\nconst hours = now.getHours();\nconst dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' });\nconst isWeekend = [0, 6].includes(now.getDay());\n\nlet timeOfDay;\nif (hours < 9) timeOfDay = 'early morning';\nelse if (hours < 12) timeOfDay = 'morning';\nelse if (hours < 14) timeOfDay = 'lunchtime';\nelse if (hours < 17) timeOfDay = 'afternoon';\nelse if (hours < 20) timeOfDay = 'evening';\nelse timeOfDay = 'late night';\n\nreturn [{\n  json: {\n    ...context,\n    calendar_events: calendarEvents,\n    current_time: now.toISOString(),\n    time_of_day: timeOfDay,\n    day_of_week: dayOfWeek,\n    is_weekend: isWeekend,\n    is_business_hours: hours >= 8 && hours < 18 && !isWeekend\n  }\n}];"
+      },
+      "id": "enrich-context",
+      "name": "Enrich with Calendar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
         "promptType": "define",
-        "text": "=You are Zen Tasks, a friendly task management assistant. You help the user manage their to-do list through natural conversation.\n\nThe user opened the chat in \"{{ $json.mode }}\" mode, which hints at their primary intent:\n- \"add\" mode: They probably want to create new tasks\n- \"clear\" mode: They probably want to complete, delete, snooze, or get suggestions about existing tasks\nBut they may express any intent in either mode — always respond to what they actually say.\n\nConversation so far:\n{{ JSON.stringify($json.history || []) }}\n\nUser's latest message:\n\"{{ $json.message }}\"\n\nTheir current active tasks:\n{{ JSON.stringify($json.active_tasks) }}\n\nToday's date: {{ new Date().toISOString().split('T')[0] }}\n\n---\n\nYou must respond with ONLY valid JSON (no markdown fences, no extra text).\n\nChoose exactly ONE action per response from the following:\n\n### ACTION: create\nUse when the user wants to add new task(s). The user may mention multiple tasks at once — capture all of them.\n\nDUPLICATE DETECTION: Before creating, check if any active task has a very similar title or clearly refers to the same thing. If so, ask the user first:\n  {\"action\": \"clarify\", \"reply\": \"You already have a similar task: '<existing title>'. Should I update that one or create a new task?\"}\n\nIf no duplicates and the input is clear enough:\n{\n  \"action\": \"create\",\n  \"reply\": \"<friendly confirmation>\",\n  \"tasks\": [\n    {\n      \"title\": \"<clear, concise title>\",\n      \"description\": \"<extra detail or null>\",\n      \"urgency\": <1-5>,\n      \"importance\": <1-5>,\n      \"estimated_minutes\": <number or null>,\n      \"due_date\": \"<ISO 8601 or null>\",\n      \"location\": \"<specific place or null>\",\n      \"tags\": [\"<tag>\"],\n      \"energy_level\": \"<low|medium|high>\",\n      \"can_be_split\": <true|false>,\n      \"recurrence\": \"<weekly|daily|etc or null>\",\n      \"depends_on_title\": \"<title of dependency task or null>\"\n    }\n  ]\n}\n\n### ACTION: complete\nUse when the user says they finished/completed a task.\n{\"action\": \"complete\", \"task_id\": \"<uuid>\", \"reply\": \"<congratulations message>\"}\n\n### ACTION: start\nUse when the user says they're ABOUT TO do a task (not done yet).\n{\"action\": \"start\", \"task_id\": \"<uuid>\", \"follow_up_minutes\": <estimated_minutes or 30>, \"reply\": \"<encouraging message, mention you'll check back>\"}\n\n### ACTION: delete\nUse when the user wants to remove a task they no longer need.\n{\"action\": \"delete\", \"task_id\": \"<uuid>\", \"reply\": \"<confirmation message>\"}\n\n### ACTION: snooze\nUse when the user wants to temporarily hide a task.\n{\"action\": \"snooze\", \"task_id\": \"<uuid>\", \"snoozed_until\": \"<ISO 8601>\", \"reply\": \"<confirmation with when it will reappear>\"}\n\n### ACTION: suggest\nUse when the user asks \"what should I do now?\" or wants a recommendation.\nPick the best task using Eisenhower matrix logic: urgent+important first, then important, then urgent. Factor in due dates and estimated time.\n{\"action\": \"suggest\", \"task_id\": \"<uuid>\", \"reply\": \"<friendly suggestion explaining why this task is a good choice right now>\"}\n\n### ACTION: clarify\nUse when you need more information, the user's intent is unclear, or you want to confirm something (like duplicate detection above).\n{\"action\": \"clarify\", \"reply\": \"<your question>\"}\n\n---\n\nRULES:\n1. Match existing tasks by fuzzy title matching — the user won't say the exact title.\n2. If multiple tasks could match, use the \"clarify\" action to ask which one.\n3. For \"create\", make reasonable assumptions about urgency/importance from context. Don't ask too many questions.\n4. If the user mentions both adding AND managing tasks in one message, handle the most prominent intent first, then mention the other: \"Done! I've added 'Buy groceries'. You also mentioned completing the dentist — want me to mark that done?\"\n5. Be concise, friendly, and warm.\n6. Always use the task's actual UUID from active_tasks when referencing existing tasks — never make up IDs.\n7. For the \"create\" action, you may include multiple tasks in the array if the user mentions several new tasks.\n8. For all other actions, handle exactly one task per response.",
+        "text": "=You are Zen Tasks, a friendly task management assistant. You help the user manage their to-do list through natural conversation.\n\nThe user opened the chat in \"{{ $json.mode }}\" mode, which hints at their primary intent:\n- \"add\" mode: They probably want to create new tasks\n- \"clear\" mode: They probably want to complete, delete, snooze, or get suggestions about existing tasks\nBut they may express any intent in either mode — always respond to what they actually say.\n\nConversation so far:\n{{ JSON.stringify($json.history || []) }}\n\nUser's latest message:\n\"{{ $json.message }}\"\n\nTheir current active tasks:\n{{ JSON.stringify($json.active_tasks) }}\n\nUpcoming calendar events (next 60 days):\n{{ JSON.stringify($json.calendar_events) }}\n\nCurrent time context:\n- Now: {{ $json.current_time }}\n- Time of day: {{ $json.time_of_day }}\n- Day: {{ $json.day_of_week }}\n- Weekend: {{ $json.is_weekend }}\n- Business hours: {{ $json.is_business_hours }}\n\nToday's date: {{ new Date().toISOString().split('T')[0] }}\n\n---\n\nYou must respond with ONLY valid JSON (no markdown fences, no extra text).\n\nChoose exactly ONE action per response from the following:\n\n### ACTION: create\nUse when the user wants to add new task(s). The user may mention multiple tasks at once — capture all of them.\n\nCALENDAR AWARENESS: If the user references an event or date relative to a calendar event (e.g. \"after Sophie's wedding\", \"before my dentist appointment\"), look it up in the calendar_events list above.\n- If you find a matching event, use its date to set the due_date\n- If you DON'T find a match, use the \"clarify\" action to ask: \"I couldn't find [event] on your calendar. When is it?\"\n- If the user gives a vague timeframe like \"next week\" or \"soon\", pick a reasonable date\n\nDUPLICATE DETECTION: Before creating, check if any active task has a very similar title or clearly refers to the same thing. If so, ask the user first:\n  {\"action\": \"clarify\", \"reply\": \"You already have a similar task: '<existing title>'. Should I update that one or create a new task?\"}\n\nCONFIDENCE CHECK: After determining urgency, importance, and duration, assess your confidence:\n- If the user gave clear signals (explicit deadline, said \"urgent\", \"quick task\", \"important\"), go ahead and create\n- If the task is ambiguous (e.g. just \"buy groceries\" with no context), make your best guess BUT include a brief note in your reply like: \"I've set this as medium urgency — let me know if it's more pressing!\"\n- If you genuinely can't tell (e.g. could be 5 minutes or 5 hours), use \"clarify\" to ask ONE focused question about the most uncertain field, not multiple questions at once\n\nIf creating:\n{\n  \"action\": \"create\",\n  \"reply\": \"<friendly confirmation that mentions key assumptions you made>\",\n  \"tasks\": [\n    {\n      \"title\": \"<clear, concise title>\",\n      \"description\": \"<extra detail or null>\",\n      \"urgency\": <1-5>,\n      \"importance\": <1-5>,\n      \"estimated_minutes\": <number or null>,\n      \"due_date\": \"<ISO 8601 or null>\",\n      \"location\": \"<specific place or null>\",\n      \"tags\": [\"<tag>\"],\n      \"energy_level\": \"<low|medium|high>\",\n      \"can_be_split\": <true|false>,\n      \"recurrence\": \"<weekly|daily|etc or null>\",\n      \"depends_on_title\": \"<title of dependency task or null>\"\n    }\n  ]\n}\n\n### ACTION: complete\nUse when the user says they finished/completed a task.\n{\"action\": \"complete\", \"task_id\": \"<uuid>\", \"reply\": \"<congratulations message>\"}\n\n### ACTION: start\nUse when the user says they're ABOUT TO do a task (not done yet).\n{\"action\": \"start\", \"task_id\": \"<uuid>\", \"follow_up_minutes\": <estimated_minutes or 30>, \"reply\": \"<encouraging message, mention you'll check back>\"}\n\n### ACTION: delete\nUse when the user wants to remove a task they no longer need.\n{\"action\": \"delete\", \"task_id\": \"<uuid>\", \"reply\": \"<confirmation message>\"}\n\n### ACTION: snooze\nUse when the user wants to temporarily hide a task.\n{\"action\": \"snooze\", \"task_id\": \"<uuid>\", \"snoozed_until\": \"<ISO 8601>\", \"reply\": \"<confirmation with when it will reappear>\"}\n\n### ACTION: suggest\nUse when the user asks \"what should I do now?\" or wants a recommendation.\nPick the best task considering:\n- Eisenhower matrix: urgent+important first, then important, then urgent\n- Due dates approaching\n- TIME OF DAY APPROPRIATENESS:\n  - Late night (8pm+): Don't suggest phone calls, errands, or anything requiring other people. Prefer low-energy tasks like planning, reading, or organising.\n  - Early morning: Good for focused work, exercise\n  - Business hours: Good for calls, emails, appointments, errands\n  - Weekends: Prefer personal tasks over work tasks unless work tasks are urgent\n- Energy level match: suggest low-energy tasks in the evening, high-energy in the morning\n- Estimated duration: suggest quick tasks if time is limited\n{\"action\": \"suggest\", \"task_id\": \"<uuid>\", \"reply\": \"<friendly suggestion explaining why this task fits right now>\"}\n\n### ACTION: clarify\nUse when you need more information, the user's intent is unclear, you can't find a referenced calendar event, or you want to confirm something.\n{\"action\": \"clarify\", \"reply\": \"<your question>\"}\n\n---\n\nRULES:\n1. Match existing tasks by fuzzy title matching — the user won't say the exact title.\n2. If multiple tasks could match, use the \"clarify\" action to ask which one.\n3. For \"create\", make reasonable assumptions but BE TRANSPARENT about them in your reply.\n4. If the user mentions both adding AND managing tasks in one message, handle the most prominent intent first, then mention the other.\n5. Be concise, friendly, and warm.\n6. Always use the task's actual UUID from active_tasks when referencing existing tasks — never make up IDs.\n7. For the \"create\" action, you may include multiple tasks in the array if the user mentions several.\n8. For all other actions, handle exactly one task per response.\n9. NEVER suggest tasks that are inappropriate for the current time of day or day of week.\n10. When creating tasks, if the user references a calendar event for timing, mention which event you matched it to in your reply.",
         "options": {}
       },
       "id": "task-agent-ai",
       "name": "Task Agent AI",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [880, 300]
+      "position": [1320, 300]
     },
     {
       "parameters": {
@@ -66,7 +95,7 @@
       "name": "Parse Agent Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, 300]
+      "position": [1540, 300]
     },
     {
       "parameters": {
@@ -82,9 +111,7 @@
                     "operator": { "type": "string", "operation": "equals" }
                   }
                 ]
-              },
-              "renameOutput": true,
-              "outputKey": "create"
+              }
             },
             {
               "conditions": {
@@ -96,9 +123,7 @@
                     "operator": { "type": "string", "operation": "equals" }
                   }
                 ]
-              },
-              "renameOutput": true,
-              "outputKey": "complete"
+              }
             },
             {
               "conditions": {
@@ -110,9 +135,7 @@
                     "operator": { "type": "string", "operation": "equals" }
                   }
                 ]
-              },
-              "renameOutput": true,
-              "outputKey": "start"
+              }
             },
             {
               "conditions": {
@@ -124,9 +147,7 @@
                     "operator": { "type": "string", "operation": "equals" }
                   }
                 ]
-              },
-              "renameOutput": true,
-              "outputKey": "delete"
+              }
             },
             {
               "conditions": {
@@ -138,9 +159,7 @@
                     "operator": { "type": "string", "operation": "equals" }
                   }
                 ]
-              },
-              "renameOutput": true,
-              "outputKey": "snooze"
+              }
             },
             {
               "conditions": {
@@ -152,9 +171,7 @@
                     "operator": { "type": "string", "operation": "equals" }
                   }
                 ]
-              },
-              "renameOutput": true,
-              "outputKey": "clarify"
+              }
             },
             {
               "conditions": {
@@ -166,9 +183,7 @@
                     "operator": { "type": "string", "operation": "equals" }
                   }
                 ]
-              },
-              "renameOutput": true,
-              "outputKey": "suggest"
+              }
             }
           ]
         },
@@ -180,7 +195,7 @@
       "name": "Route Action",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [1320, 300]
+      "position": [1760, 300]
     },
     {
       "parameters": {
@@ -190,7 +205,7 @@
       "name": "Split New Tasks",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1580, 60]
+      "position": [2020, 60]
     },
     {
       "parameters": {
@@ -221,7 +236,7 @@
       "name": "Insert Task",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1800, 60],
+      "position": [2240, 60],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -248,7 +263,7 @@
       "name": "Mark Complete",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1580, 200],
+      "position": [2020, 200],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -276,7 +291,7 @@
       "name": "Mark In Progress",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1580, 340],
+      "position": [2020, 340],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -303,7 +318,7 @@
       "name": "Soft Delete",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1580, 480],
+      "position": [2020, 480],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -330,7 +345,7 @@
       "name": "Snooze Task",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1580, 620],
+      "position": [2020, 620],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -354,7 +369,7 @@
       "name": "Respond Action Done",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1860, 340]
+      "position": [2300, 340]
     },
     {
       "parameters": {
@@ -372,7 +387,7 @@
       "name": "Respond Continue",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1580, 800]
+      "position": [2020, 800]
     }
   ],
   "connections": {
@@ -387,6 +402,16 @@
       ]
     },
     "Prepare AI Context": {
+      "main": [
+        [{ "node": "Fetch Calendar Events", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Calendar Events": {
+      "main": [
+        [{ "node": "Enrich with Calendar", "type": "main", "index": 0 }]
+      ]
+    },
+    "Enrich with Calendar": {
       "main": [
         [{ "node": "Task Agent AI", "type": "main", "index": 0 }]
       ]
