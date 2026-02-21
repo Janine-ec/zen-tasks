@@ -168,8 +168,8 @@ async function handleTextMessage(message: any) {
   });
 
   // If pause suggested, update user
-  if (aiResult.pause_hours > 0) {
-    const pauseUntil = new Date(Date.now() + aiResult.pause_hours * 3600000).toISOString();
+  if ((aiResult.pause_hours ?? 0) > 0) {
+    const pauseUntil = new Date(Date.now() + (aiResult.pause_hours ?? 0) * 3600000).toISOString();
     await updateUser(userId, { nudge_paused_until: pauseUntil });
   }
 

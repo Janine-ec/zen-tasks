@@ -4,7 +4,13 @@ import { askClaudeJson } from '@/lib/anthropic';
 import { getUpcomingEvents } from '@/lib/google-calendar';
 import { getTimeContext } from '@/lib/time-context';
 import { TASK_AGENT_PROMPT } from '@/lib/prompts';
-import type { TaskAgentRequest, TaskAgentResponse, TaskAgentApiResponse, Task } from '@/lib/types';
+import type {
+  TaskAgentRequest,
+  TaskAgentResponse,
+  TaskAgentApiResponse,
+  Task,
+  CalendarEvent,
+} from '@/lib/types';
 
 /**
  * POST /api/task-agent
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest) {
     const activeTasks = await getActiveTasks(user_id);
 
     // 2. Fetch calendar events (gracefully degrade on failure)
-    let calendarEvents;
+    let calendarEvents: CalendarEvent[];
     try {
       calendarEvents = await getUpcomingEvents(60);
     } catch (error) {

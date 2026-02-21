@@ -5,7 +5,7 @@
 
 const CONFIG = {
   // Vercel API base URL (no trailing slash)
-  API_BASE_URL: 'https://zen-tasks-api.vercel.app/api',
+  API_BASE_URL: 'https://zen-tasker-drab.vercel.app/api',
 
   // API endpoint paths
   ENDPOINTS: {

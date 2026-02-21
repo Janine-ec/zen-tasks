@@ -40,10 +40,10 @@ export async function getUpcomingEvents(days: number = 60): Promise<CalendarEven
     return events.map((event) => ({
       id: event.id || '',
       summary: event.summary || 'Untitled Event',
-      description: event.description,
+      description: event.description ?? undefined,
       start: event.start?.dateTime || event.start?.date || '',
       end: event.end?.dateTime || event.end?.date || '',
-      location: event.location,
+      location: event.location ?? undefined,
     }));
   } catch (error) {
     console.error('Error fetching calendar events:', error);

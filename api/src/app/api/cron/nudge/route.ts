@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
           task_id: aiMatch.task_id,
           channel: 'telegram',
           message_text: aiMatch.message,
-          calendar_slot: aiMatch.slot,
+          calendar_slot: aiMatch.slot ?? undefined,
           status: 'sent',
         });
 
