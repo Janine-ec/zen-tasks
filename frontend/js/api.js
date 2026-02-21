@@ -13,7 +13,7 @@ const API = {
    */
   async sendMessage(message, history, mode) {
     const res = await fetch(
-      CONFIG.N8N_BASE_URL + CONFIG.ENDPOINTS.TASK_AGENT,
+      CONFIG.API_BASE_URL + CONFIG.ENDPOINTS.TASK_AGENT,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,7 +36,7 @@ const API = {
    */
   async listTasks(status) {
     const res = await fetch(
-      CONFIG.N8N_BASE_URL + CONFIG.ENDPOINTS.LIST_TASKS,
+      CONFIG.API_BASE_URL + CONFIG.ENDPOINTS.LIST_TASKS,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

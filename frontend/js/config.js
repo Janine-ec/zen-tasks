@@ -4,10 +4,10 @@
 // =============================================================
 
 const CONFIG = {
-  // n8n webhook base URL (no trailing slash)
-  N8N_BASE_URL: 'https://janine-nz.app.n8n.cloud/webhook',
+  // Vercel API base URL (no trailing slash)
+  API_BASE_URL: 'https://zen-tasks-api.vercel.app/api',
 
-  // n8n webhook paths
+  // API endpoint paths
   ENDPOINTS: {
     TASK_AGENT:  '/task-agent',
     LIST_TASKS:  '/list-tasks',

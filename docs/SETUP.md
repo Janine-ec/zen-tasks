@@ -1,14 +1,14 @@
-# Task Management App - Setup Guide
+# Zen Tasks — Setup Guide
 
-A zen task manager where you talk to an AI assistant to add and clear tasks. The AI handles all the complexity — you never have to stare at a long task list.
+A zen task manager where you talk to an AI assistant to add and manage tasks. The AI handles all the complexity — you never have to stare at a long task list.
 
 ## Prerequisites
 
 - A [Supabase](https://supabase.com) account (free tier works)
-- [n8n](https://n8n.io) running locally or cloud (`npx n8n` or Docker)
+- A [Vercel](https://vercel.com) account (free tier works)
 - A Telegram account (for nudges)
 - A Google account (for calendar integration)
-- Node.js installed (only needed for `npx serve` to host the frontend)
+- Node.js 20+ installed
 
 ---
 
@@ -16,10 +16,10 @@ A zen task manager where you talk to an AI assistant to add and clear tasks. The
 
 1. Create a new project at [app.supabase.com](https://app.supabase.com)
 2. Go to **SQL Editor** and run the contents of `database/schema.sql`
-3. Then run `database/seed.sql` (creates a default user)
-4. Note your project credentials (Settings > API):
+3. Then run `database/seed.sql` (creates the default user)
+4. Note your project credentials (**Settings > API**):
    - **Project URL** (e.g. `https://xxxx.supabase.co`)
-   - **service_role key** (the secret one, not `anon`)
+   - **service_role key** (the secret one — not `anon`)
 
 ---
 
@@ -28,11 +28,8 @@ A zen task manager where you talk to an AI assistant to add and clear tasks. The
 1. Open Telegram and message [@BotFather](https://t.me/BotFather)
 2. Send `/newbot`, follow the prompts, and save your **Bot Token**
 3. Start a conversation with your new bot (send it any message)
-4. Get your **Chat ID** — easiest way:
-   - In n8n, add your Telegram credential (Settings > Credentials > Telegram, paste your bot token)
-   - Create a temporary workflow with a Telegram node, set it to "Send Message", and click "Test". The chat ID will appear in the test output.
-   - Alternatively, search for **@userinfobot** in Telegram and send it any message — it replies with your ID.
-5. Update the default user in Supabase:
+4. Get your **Chat ID** — search for [@userinfobot](https://t.me/userinfobot) in Telegram and send it any message. It replies with your ID.
+5. Update the default user in Supabase SQL Editor:
    ```sql
    UPDATE users
    SET telegram_chat_id = 'YOUR_CHAT_ID'
@@ -41,186 +38,165 @@ A zen task manager where you talk to an AI assistant to add and clear tasks. The
 
 ---
 
-## 3. n8n Setup
+## 3. Google Calendar OAuth2 Setup
 
-### Start n8n
+The API needs read access to your Google Calendar to find free slots for nudges and resolve date references in tasks.
 
-```bash
-npx n8n
-```
-
-This starts n8n at `http://localhost:5678`.
-
-### Add Credentials
-
-Go to **Settings > Credentials** and create:
-
-1. **Supabase** credential:
-   - Host: your Supabase project URL
-   - Service Role Key: your service_role key
-
-2. **Telegram** credential:
-   - Bot Token: from BotFather
-
-3. **Google Calendar OAuth2** credential:
-   - Follow n8n's [Google Calendar setup guide](https://docs.n8n.io/integrations/builtin/credentials/google/)
-   - You need a Google Cloud project with Calendar API enabled
-
-### Import Workflows
-
-Import each workflow JSON file from `n8n-workflows/`:
-
-1. **04-send-notification.json** (import first — other workflows reference it)
-2. **01-add-task.json** — conversational task creation
-3. **02-clear-task.json** — conversational task completion/deletion/suggestion
-4. **02b-list-tasks.json** — simple task listing for the hamburger menu
-5. **03-nudge-cron.json** — periodic smart nudges via Telegram
-
-For each workflow:
-1. Go to **Workflows > Import from File**
-2. Select the JSON file
-3. Open the workflow and update credential references:
-   - Click each Supabase node > select your Supabase credential
-   - Click the Telegram node (in workflow 04) > select your Telegram credential
-   - Click the Google Calendar node (in workflow 03) > select your Google Calendar credential
-4. In workflow **03**, open the "Send Notification" node and select workflow **04** as the sub-workflow
-
-### Configure AI Agent Nodes
-
-Workflows 01, 02, and 03 use AI Agent nodes. You need to connect an LLM:
-
-1. Open each workflow with an "AI Agent" node
-2. Click the AI Agent node
-3. Under "Model", add your preferred LLM credential:
-   - **OpenAI** (GPT-4, GPT-4o, etc.)
-   - **Anthropic** (Claude)
-   - **Or any other** supported by n8n
-4. The prompts are model-agnostic — any capable LLM will work
-
-### Configure Switch Nodes
-
-**Workflow 02 - Clear Task** has a Switch node that routes by action:
-
-1. Open workflow **02 - Clear Task**
-2. Click the **Switch Action** node
-3. Add 6 output rules matching the action field:
-   - Output 0: `complete`
-   - Output 1: `start`
-   - Output 2: `delete`
-   - Output 3: `snooze`
-   - Output 4: `clarify`
-   - Output 5: `suggest`
-
-### Activate Workflows
-
-Toggle each workflow **Active** (top-right switch). The webhook workflows (01, 02, 02b) need to be active to receive requests from the frontend.
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project (or use an existing one)
+3. Enable the **Google Calendar API** (APIs & Services > Library)
+4. Create OAuth 2.0 credentials (APIs & Services > Credentials > Create Credentials > OAuth client ID):
+   - Application type: **Web application**
+   - Authorised redirect URIs: add `https://developers.google.com/oauthplayground`
+5. Note your **Client ID** and **Client Secret**
+6. Get a refresh token via [OAuth Playground](https://developers.google.com/oauthplayground):
+   - Click the gear icon (top right) > tick **Use your own OAuth credentials**
+   - Enter your Client ID and Client Secret
+   - In Step 1, find and select **Google Calendar API v3** > `https://www.googleapis.com/auth/calendar.readonly`
+   - Click **Authorise APIs** and sign in with your Google account
+   - In Step 2, click **Exchange authorisation code for tokens**
+   - Copy the **Refresh token**
 
 ---
 
-## 4. Frontend Setup
+## 4. API Setup (Vercel)
 
-### Update Config
+### Environment Variables
+
+Create `api/.env.local` for local development:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+TELEGRAM_BOT_TOKEN=123456:ABC...
+GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-...
+GOOGLE_REFRESH_TOKEN=1//...
+CRON_SECRET=any-random-string-you-choose
+```
+
+### Local Development
+
+```bash
+cd api
+npm install
+npm run dev
+```
+
+The API runs at `http://localhost:3000`.
+
+### Deploy to Vercel
+
+1. Push the repo to GitHub
+2. Import the project at [vercel.com/new](https://vercel.com/new)
+   - Set **Root Directory** to `api`
+3. Add all the environment variables from `.env.local` in **Settings > Environment Variables**
+4. Deploy — Vercel gives you a URL like `https://your-project.vercel.app`
+
+### Configure the Telegram Webhook
+
+Once deployed, register the webhook so Telegram sends button presses and replies to your API:
+
+```bash
+curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-project.vercel.app/api/telegram/webhook"
+```
+
+### Configure the Nudge Cron
+
+In `api/vercel.json`, the cron is already configured to run every 30 minutes. Vercel calls `GET /api/cron/nudge` with an `Authorization: Bearer <CRON_SECRET>` header. No extra setup needed after deploy.
+
+---
+
+## 5. Frontend Setup
+
+The frontend is a static Vanilla JS app hosted on GitHub Pages. It's already configured to point at the production API.
+
+To run it locally against a local API:
 
 Edit `frontend/js/config.js`:
-
 ```js
 const CONFIG = {
-  // If n8n is running locally:
-  N8N_BASE_URL: 'http://localhost:5678/webhook',
-
-  // If using n8n cloud:
-  // N8N_BASE_URL: 'https://your-instance.app.n8n.cloud/webhook',
-
-  ENDPOINTS: {
-    ADD_TASK:    '/add-task',
-    CLEAR_TASK:  '/clear-task',
-    LIST_TASKS:  '/list-tasks',
-  },
-
+  API_BASE_URL: 'http://localhost:3000/api',  // local
   USER_ID: '00000000-0000-0000-0000-000000000001',
 };
 ```
 
-### Serve the Frontend
-
+Then serve it:
 ```bash
 npx serve frontend/
 ```
 
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:3000` (or whichever port `serve` picks).
 
 ---
 
-## 5. How It Works
+## 6. How It Works
 
 ### Home Screen
-Two buttons: **Add a task** and **Clear a task**. A hamburger menu in the corner opens the full task list (but you shouldn't need it often).
+Two buttons: **Add a task** and **Clear a task**. A hamburger menu opens the full task list (but you shouldn't need it often).
 
 ### Adding a Task
 Tap "Add a task" to open a chat. Type or voice-message your tasks. The AI will:
-- Parse the task details (title, urgency, importance, duration, location, etc.)
-- Ask clarifying questions if needed ("How urgent is this?" / "When is this due?")
+- Parse task details (title, urgency, importance, duration, location, etc.)
+- Check your Google Calendar to resolve relative dates ("after Sophie's wedding")
+- Ask clarifying questions if needed
 - Confirm when the task is saved
 
-You can mention multiple tasks at once.
+You can add multiple tasks in one message.
 
 ### Clearing a Task
-Tap "Clear a task" to open a chat. You can:
-- **Complete a task**: "I finished the grocery shopping"
-- **Start a task**: "I'm about to do the laundry" (AI will follow up to check)
-- **Snooze a task**: "Snooze the laundry for a day" (hides it from top tasks and nudges until then)
-- **Delete a task**: "Delete the dentist appointment, I cancelled it"
-- **Get a suggestion**: "What should I do now?" (AI picks the best task based on urgency, importance, due dates, and available time)
+Tap "Clear a task". You can:
+- **Complete**: "I finished the grocery shopping"
+- **Start**: "I'm about to do the laundry" (AI will follow up later)
+- **Snooze**: "Snooze the laundry for a day"
+- **Delete**: "Delete the dentist appointment, I cancelled it"
+- **Get a suggestion**: "What should I do now?" (AI picks the best task given your free time)
 
 ### Nudges
-Every 30 minutes (8am-9pm), the cron workflow checks your Google Calendar for free time, looks at your active tasks, and sends a smart suggestion via Telegram.
-
-### Task List
-Tap the hamburger menu to see all active or completed tasks. This is read-only — all actions go through the chat.
+Every 30 minutes (8am–9pm), the cron checks your Google Calendar for free slots, picks the best matching task, and sends a suggestion via Telegram with three buttons: **On it!**, **Snooze 1h**, **Busy today**.
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
-### "Something went wrong" in chat
-- Check that n8n is running and webhooks are active
-- Verify the URL in `config.js` matches your n8n instance
+### "Something went wrong" in the chat
+- Check that the API is deployed and responding at `/api/task-agent`
+- Check Vercel function logs for errors
 - Check the browser console (F12) for CORS errors
-- Check n8n execution logs for workflow errors
 
 ### AI responses aren't parsing correctly
-- Check n8n execution logs — look at the AI Agent node output
-- The AI may not be returning valid JSON; check the prompt
-- Fallback handling is built in — the raw AI text will show as a chat message
+- Check Vercel logs — look for JSON parse errors
+- The raw AI text is shown as a chat message as a fallback — user input is never lost
 
 ### Voice button doesn't work
 - Web Speech API requires HTTPS or localhost
 - Chrome has the best support; Firefox/Safari may not work
 - Check browser permissions for microphone access
 
-### No Telegram messages
-- Verify bot token and chat ID are correct
-- Make sure you started a conversation with the bot first
-- Check n8n execution logs for workflows 03 and 04
-- Ensure Google Calendar credential is connected
+### No Telegram nudges arriving
+- Verify the webhook is set: `curl https://api.telegram.org/bot<TOKEN>/getWebhookInfo`
+- Check that `TELEGRAM_BOT_TOKEN` and the user's `telegram_chat_id` in Supabase are correct
+- Make sure you started a conversation with the bot (send it any message)
+- Check Vercel cron logs in the dashboard
 
-### CORS Issues
-- Webhook nodes are configured with `allowedOrigins: "*"`
-- If still having issues, set the n8n environment variable: `N8N_CORS_ALLOWED_ORIGINS=*`
+### CORS errors
+- CORS is handled in `api/src/lib/middleware.ts` — allowed origins are set to `*` by default
 
 ---
 
-## Architecture
+## Architecture Notes
 
-- **Frontend never talks to Supabase directly.** All data flows through n8n.
-- **n8n uses the service_role key**, bypassing RLS. Intentional for single-user.
-- **Soft deletes only.** Tasks are never physically removed.
-- **AI fallback.** If parsing fails, the AI's raw text is shown as a chat message. User input is never lost.
-- **Conversational.** Both add and clear flows support multi-turn AI conversation with clarifying questions.
+- **Frontend never talks to Supabase directly.** All data flows through the Next.js API.
+- **The API uses the service_role key**, bypassing RLS. Intentional for single-user.
+- **Soft deletes only.** Tasks are never physically removed — `status` is set to `'deleted'`.
+- **AI fallback.** If JSON parsing fails, the raw AI text is shown as a chat message.
+- **Conversational.** Both add and clear flows support multi-turn AI conversation.
+
+---
 
 ## What's Next
 
-- **Multi-user auth**: Enable Supabase Auth, tighten RLS from `USING (true)` to `USING (auth.uid() = user_id)`, add login page
-- **Replace n8n**: Build a Node.js/Python API with the same endpoints, update `config.js`
-- **In-app notifications**: The `notifications` table with Realtime is ready. Add Supabase JS client to frontend, subscribe to changes
-- **Follow-up checks**: Add a cron workflow that checks `follow_up_at` on in-progress tasks and nudges the user to confirm completion
+- **Follow-up checks**: Add a cron that checks `follow_up_at` on in-progress tasks and nudges for completion confirmation
+- **In-app notifications**: The `notifications` table + Supabase Realtime is ready — add Supabase JS client to frontend
+- **Multi-user auth**: Enable Supabase Auth, tighten RLS from `USING (true)` to `USING (auth.uid() = user_id)`, add a login page

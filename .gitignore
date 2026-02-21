@@ -5,3 +5,9 @@
 # OS files
 .DS_Store
 Thumbs.db
+
+# Next.js API
+api/node_modules/
+api/.env.local
+api/.next/
+api/.vercel
