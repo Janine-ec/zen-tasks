@@ -144,7 +144,11 @@ export async function POST(request: NextRequest) {
 
     // 7. Return response
     const response: TaskAgentApiResponse = {
-      replies: aiResponse.replies || [],
+      replies: aiResponse.replies?.length
+        ? aiResponse.replies
+        : aiResponse.reply
+          ? [aiResponse.reply]
+          : [],
       done,
     };
 

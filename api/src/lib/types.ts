@@ -112,7 +112,8 @@ export type TaskAgentAction =
 
 export interface TaskAgentResponse {
   action: TaskAgentAction;
-  replies: string[];
+  reply?: string;
+  replies?: string[];
   done: boolean;
   confidence?: number;
   tasks?: Partial<Task>[]; // For 'create' action
