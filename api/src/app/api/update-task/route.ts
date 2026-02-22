@@ -11,6 +11,7 @@ interface UpdateTaskRequest {
  * POST /api/update-task
  * Directly updates one or more fields on a task.
  * Used by the task detail screen for inline editing and status changes.
+ * v2
  */
 export async function POST(request: NextRequest) {
   try {
