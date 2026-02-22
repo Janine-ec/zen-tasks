@@ -102,6 +102,14 @@ Migration from n8n to Next.js is complete. The app is live:
 - **In-app notifications**: `notifications` table + Supabase Realtime is ready — add Supabase JS client to frontend
 - **Multi-user auth**: Enable Supabase Auth, tighten RLS to `USING (auth.uid() = user_id)`, add login page
 
+## Dev Environment
+
+VS Code runs inside a **Distrobox container (Ubuntu 24.04 LTS)**. The host OS is Fedora 43.
+
+- Install packages inside the distrobox with `sudo apt install <package>` (not `dnf`)
+- Git install: `sudo apt install git`
+- The distrobox shares the home directory with the host, so files in `/var/home/janine/` are accessible from both
+
 ## What NOT To Do
 
 - Don't call Supabase, Anthropic, Google, or Telegram directly from route handlers — always go through `lib/`

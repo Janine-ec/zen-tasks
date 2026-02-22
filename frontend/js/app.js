@@ -7,7 +7,6 @@
 
   // --- All views ---
   const views = {
-    home:       document.getElementById('home-view'),
     chat:       document.getElementById('chat-view'),
     tasks:      document.getElementById('tasks-view'),
     taskDetail: document.getElementById('task-detail-view'),
@@ -21,9 +20,6 @@
   const menuOverlay  = document.getElementById('menu-overlay');
   const menuClose    = document.getElementById('menu-close');
   const menuItems    = document.querySelectorAll('.menu-item');
-  const btnAdd       = document.getElementById('btn-add');
-  const btnClear     = document.getElementById('btn-clear');
-  const chatBack     = document.getElementById('chat-back');
   const chatTitle    = document.getElementById('chat-title');
   const chatMessages = document.getElementById('chat-messages');
   const chatInput    = document.getElementById('chat-input');
@@ -39,7 +35,7 @@
   const toastContainer = document.getElementById('toast-container');
 
   // --- State ---
-  let currentMode = null;
+  let currentMode = 'chat';
   let chatHistory = [];
   let sending = false;
   let activeFilter = 'active';
@@ -72,7 +68,7 @@
   function showView(name) {
     Object.values(views).forEach((v) => v.classList.remove('active'));
     views[name].classList.add('active');
-    menuBtn.style.display = name === 'home' ? '' : 'none';
+    menuBtn.style.display = name === 'chat' ? '' : 'none';
     menuOverlay.classList.remove('open');
   }
 
@@ -120,7 +116,7 @@
   // Back buttons
   document.querySelectorAll('.back-to-home').forEach((btn) => {
     btn.addEventListener('click', () => {
-      showView('home');
+      showView('chat');
       refreshTopTasks();
     });
   });
@@ -133,29 +129,6 @@
   // CHAT
   // =============================================================
 
-  const PLACEHOLDERS = {
-    add: "Brain dump your to do list, give me deadlines, urgency, details \u2014 I'll take care of the rest!",
-    clear: "Want me to suggest a task you can do right now? Or tell me if you\u2019ve marked something off the list or want to remove an item",
-  };
-
-  function openChat(mode) {
-    currentMode = mode;
-    chatHistory = [];
-    chatMessages.innerHTML = '';
-    chatInput.value = '';
-    chatInput.disabled = false;
-    sending = false;
-
-    chatTitle.textContent = mode === 'add' ? 'Add a task' : 'Clear a task';
-    chatInput.placeholder = PLACEHOLDERS[mode];
-
-    // Reset any keyboard-adjusted height before switching view
-    views.chat.style.height = '';
-    views.chat.style.minHeight = '';
-
-    showView('chat');
-    setTimeout(() => chatInput.focus(), 100);
-  }
 
   function addAIMessage(text) {
     const div = document.createElement('div');
@@ -215,7 +188,7 @@
       });
 
       if (data.done) {
-        showToast(currentMode === 'add' ? 'Tasks saved!' : 'Updated!', 'success');
+        showToast('Updated!', 'success');
       }
     } catch (err) {
       hideThinking();
@@ -236,10 +209,6 @@
   });
 
   chatSend.addEventListener('click', sendMessage);
-  chatBack.addEventListener('click', () => {
-    showView('home');
-    refreshTopTasks();
-  });
 
   // Voice
   if (Voice.supported) {
@@ -540,16 +509,10 @@
   });
 
   // =============================================================
-  // HOME EVENTS
-  // =============================================================
-
-  btnAdd.addEventListener('click', () => openChat('add'));
-  btnClear.addEventListener('click', () => openChat('clear'));
-
-  // =============================================================
   // INIT
   // =============================================================
 
+  chatInput.placeholder = "Add tasks, clear tasks, or ask for a suggestion \u2014 just tell me what you need!";
   loadSettings();
   refreshTopTasks();
 

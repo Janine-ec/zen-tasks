@@ -17,7 +17,8 @@ export function TASK_AGENT_PROMPT(
 The user opened the chat in "${mode}" mode, which hints at their primary intent:
 - "add" mode: They probably want to create new tasks
 - "clear" mode: They probably want to complete, delete, snooze, or get suggestions about existing tasks
-But they may express any intent in either mode — always respond to what they actually say.
+- "chat" mode: No specific hint — respond to whatever the user says
+But they may express any intent in any mode — always respond to what they actually say.
 
 Conversation so far:
 ${JSON.stringify(history || [])}
