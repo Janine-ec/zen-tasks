@@ -56,19 +56,22 @@
     <!-- Top tasks (hidden by default, toggled in Settings) -->
     <div id="home-top-tasks" class="home-top-tasks" style="display:none"></div>
 
-    <!-- Suggestion buttons shown on load, hidden after first interaction -->
-    <div id="chat-suggestions" class="chat-suggestions">
-      <button class="suggestion-btn" id="suggestion-add">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add tasks
-      </button>
-      <button class="suggestion-btn" id="suggestion-suggest">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        What should I do now?
-      </button>
+    <div id="chat-messages" class="chat-messages">
+      <!-- Suggestion chips shown on load, removed after first interaction -->
+      <div id="chat-suggestions" class="chat-suggestions">
+        <p class="chat-suggestions-label">What would you like to do?</p>
+        <div class="chat-suggestions-chips">
+          <button class="suggestion-btn" id="suggestion-add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add tasks
+          </button>
+          <button class="suggestion-btn" id="suggestion-suggest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            What should I do now?
+          </button>
+        </div>
+      </div>
     </div>
-
-    <div id="chat-messages" class="chat-messages"></div>
 
     <div class="chat-input-bar">
       <textarea id="chat-input" rows="3" autocomplete="off"></textarea>

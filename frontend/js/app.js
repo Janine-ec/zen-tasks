@@ -73,7 +73,7 @@
     if (splashCollapsed) return;
     splashCollapsed = true;
     chatSplash.classList.add('collapsed');
-    chatSuggestions.style.display = 'none';
+    chatSuggestions.remove();
   }
 
   // --- View switching ---
