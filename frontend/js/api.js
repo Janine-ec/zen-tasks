@@ -30,6 +30,25 @@ const API = {
   },
 
   /**
+   * Update one or more fields on a task directly.
+   * @param {string} taskId - UUID of the task
+   * @param {object} fields - Fields to update (e.g. { status: 'completed' })
+   * @returns {Promise<object>} Updated task
+   */
+  async updateTask(taskId, fields) {
+    const res = await fetch(
+      CONFIG.API_BASE_URL + CONFIG.ENDPOINTS.UPDATE_TASK,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: taskId, fields }),
+      }
+    );
+    if (!res.ok) throw new Error('Failed to update task');
+    return res.json();
+  },
+
+  /**
    * List tasks by status.
    * @param {string} status - 'pending', 'completed', etc.
    * @returns {Promise<object[]>} Array of tasks

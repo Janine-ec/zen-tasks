@@ -9,8 +9,9 @@ const CONFIG = {
 
   // API endpoint paths
   ENDPOINTS: {
-    TASK_AGENT:  '/task-agent',
-    LIST_TASKS:  '/list-tasks',
+    TASK_AGENT:   '/task-agent',
+    LIST_TASKS:   '/list-tasks',
+    UPDATE_TASK:  '/update-task',
   },
 
   // Default user ID (matches seed.sql)

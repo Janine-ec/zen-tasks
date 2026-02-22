@@ -394,21 +394,57 @@
   // TASK DETAIL
   // =============================================================
 
+  function ratingButtons(field, current, values) {
+    return values.map((v) => {
+      const label = typeof v === 'number' ? v : v.charAt(0).toUpperCase() + v.slice(1);
+      const active = String(current) === String(v) ? ' active' : '';
+      return `<button class="detail-rating-btn${active}" data-field="${field}" data-value="${v}">${label}</button>`;
+    }).join('');
+  }
+
   function openTaskDetail(task) {
-    const due = task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'None';
+    const dueDateVal = task.due_date ? task.due_date.split('T')[0] : '';
+    const isActive = task.status === 'pending' || task.status === 'in_progress';
 
     let html = `
       <div class="detail-title">${esc(task.title)}</div>
       ${task.description ? `<div class="detail-desc">${esc(task.description)}</div>` : ''}
       <div class="detail-grid">
-        <div class="detail-field"><div class="detail-field-label">Urgency</div><div class="detail-field-value">${task.urgency || 3} / 5</div></div>
-        <div class="detail-field"><div class="detail-field-label">Importance</div><div class="detail-field-value">${task.importance || 3} / 5</div></div>
-        <div class="detail-field"><div class="detail-field-label">Deadline</div><div class="detail-field-value">${due}</div></div>
-        <div class="detail-field"><div class="detail-field-label">Duration</div><div class="detail-field-value">${task.estimated_minutes ? task.estimated_minutes + ' min' : 'Unknown'}</div></div>
-        <div class="detail-field"><div class="detail-field-label">Status</div><div class="detail-field-value">${esc(task.status)}</div></div>
-        <div class="detail-field"><div class="detail-field-label">Location</div><div class="detail-field-value">${esc(task.location) || 'Anywhere'}</div></div>
-        <div class="detail-field"><div class="detail-field-label">Energy</div><div class="detail-field-value">${esc(task.energy_level) || 'Medium'}</div></div>
-        <div class="detail-field"><div class="detail-field-label">Splittable</div><div class="detail-field-value">${task.can_be_split ? 'Yes' : 'No'}</div></div>
+        <div class="detail-field">
+          <div class="detail-field-label">Urgency</div>
+          <div class="detail-rating">${ratingButtons('urgency', task.urgency || 3, [1,2,3,4,5])}</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Importance</div>
+          <div class="detail-rating">${ratingButtons('importance', task.importance || 3, [1,2,3,4,5])}</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Deadline</div>
+          <input class="detail-input" type="date" data-field="due_date" value="${dueDateVal}">
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Duration (min)</div>
+          <input class="detail-input" type="number" min="1" data-field="estimated_minutes" value="${task.estimated_minutes || ''}" placeholder="—">
+        </div>
+        <div class="detail-field detail-field-full">
+          <div class="detail-field-label">Energy</div>
+          <div class="detail-rating">${ratingButtons('energy_level', task.energy_level || 'medium', ['low','medium','high'])}</div>
+        </div>
+        <div class="detail-field detail-field-full">
+          <div class="detail-field-label">Location</div>
+          <input class="detail-input" type="text" data-field="location" value="${esc(task.location || '')}" placeholder="Anywhere">
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Splittable</div>
+          <label class="toggle" style="margin-top:4px">
+            <input type="checkbox" class="detail-toggle" data-field="can_be_split" ${task.can_be_split ? 'checked' : ''}>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Status</div>
+          <div class="detail-field-value">${esc(task.status)}</div>
+        </div>
       </div>
     `;
 
@@ -418,7 +454,6 @@
       html += `</div>`;
     }
 
-    // AI conversation history
     const convo = task.ai_conversation;
     if (convo && Array.isArray(convo) && convo.length > 0) {
       html += `<div class="detail-section-title">Conversation</div><div class="detail-conversation">`;
@@ -429,8 +464,78 @@
       html += `</div>`;
     }
 
+    if (isActive) {
+      html += `
+        <div class="detail-actions">
+          <button class="detail-action-btn detail-action-complete" id="detail-btn-complete">Complete</button>
+          <button class="detail-action-btn detail-action-remove" id="detail-btn-remove">No longer required</button>
+        </div>
+      `;
+    }
+
     taskDetailContent.innerHTML = html;
     showView('taskDetail');
+    attachDetailListeners(task);
+  }
+
+  function attachDetailListeners(task) {
+    taskDetailContent.querySelectorAll('.detail-rating-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const field = btn.dataset.field;
+        taskDetailContent.querySelectorAll(`.detail-rating-btn[data-field="${field}"]`).forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const val = isNaN(Number(btn.dataset.value)) ? btn.dataset.value : Number(btn.dataset.value);
+        saveDetailField(task.id, field, val);
+      });
+    });
+
+    taskDetailContent.querySelectorAll('.detail-input').forEach((input) => {
+      const field = input.dataset.field;
+      let timer;
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          let value = input.value;
+          if (input.type === 'number') value = value ? Number(value) : null;
+          if (field === 'due_date') value = value ? new Date(value).toISOString() : null;
+          saveDetailField(task.id, field, value);
+        }, 400);
+      });
+    });
+
+    const toggle = taskDetailContent.querySelector('.detail-toggle');
+    if (toggle) {
+      toggle.addEventListener('change', () => saveDetailField(task.id, toggle.dataset.field, toggle.checked));
+    }
+
+    const completeBtn = document.getElementById('detail-btn-complete');
+    if (completeBtn) {
+      completeBtn.addEventListener('click', () => performDetailAction(task.id, 'completed', 'Task completed!'));
+    }
+    const removeBtn = document.getElementById('detail-btn-remove');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => performDetailAction(task.id, 'deleted', 'Task removed.'));
+    }
+  }
+
+  async function saveDetailField(taskId, field, value) {
+    try {
+      await API.updateTask(taskId, { [field]: value });
+      showToast('Saved', 'success');
+    } catch (_err) {
+      showToast('Failed to save', 'error');
+    }
+  }
+
+  async function performDetailAction(taskId, status, successMsg) {
+    try {
+      await API.updateTask(taskId, { status });
+      showToast(successMsg, 'success');
+      showView('tasks');
+      loadTasksList();
+    } catch (_err) {
+      showToast('Something went wrong', 'error');
+    }
   }
 
   // =============================================================
