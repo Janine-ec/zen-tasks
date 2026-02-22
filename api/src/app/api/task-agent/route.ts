@@ -84,7 +84,10 @@ export async function POST(request: NextRequest) {
               can_be_split: taskData.can_be_split || false,
               recurrence: taskData.recurrence || null,
               status: 'pending',
-              ai_conversation: history,
+              ai_conversation: [
+                { role: 'user', content: message },
+                { role: 'assistant', content: aiResponse.reply || (aiResponse.replies?.[0] ?? '') },
+              ],
             } as Partial<Task>);
           }
         }
