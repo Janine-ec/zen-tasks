@@ -380,6 +380,86 @@ body.dark .home-btn-clear .home-btn-icon { background: #1a3a2a; }
 .chat-back-btn svg { width: 20px; height: 20px; }
 .chat-title { font-size: 1rem; font-weight: 600; }
 
+/* Splash area */
+.chat-splash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px 24px;
+  gap: 14px;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: padding 0.35s ease, gap 0.35s ease;
+}
+
+.splash-logo {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  border-radius: 20px;
+  transition: width 0.35s ease, height 0.35s ease, border-radius 0.35s ease;
+}
+
+.splash-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  transition: opacity 0.2s ease, max-height 0.3s ease;
+  max-height: 48px;
+  overflow: hidden;
+}
+
+.chat-splash.collapsed {
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: 10px 16px 6px;
+  gap: 8px;
+}
+
+.chat-splash.collapsed .splash-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.chat-splash.collapsed .splash-title {
+  opacity: 0;
+  max-height: 0;
+}
+
+/* Suggestion buttons */
+.chat-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px 16px;
+  flex-shrink: 0;
+}
+
+.suggestion-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 18px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.suggestion-btn:hover,
+.suggestion-btn:active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;

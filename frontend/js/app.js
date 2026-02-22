@@ -16,12 +16,15 @@
   };
 
   // --- DOM refs ---
-  const menuBtn      = document.getElementById('menu-btn');
-  const menuOverlay  = document.getElementById('menu-overlay');
-  const menuClose    = document.getElementById('menu-close');
-  const menuItems    = document.querySelectorAll('.menu-item');
-  const chatTitle    = document.getElementById('chat-title');
-  const chatMessages = document.getElementById('chat-messages');
+  const menuBtn           = document.getElementById('menu-btn');
+  const menuOverlay       = document.getElementById('menu-overlay');
+  const menuClose         = document.getElementById('menu-close');
+  const menuItems         = document.querySelectorAll('.menu-item');
+  const chatSplash        = document.getElementById('chat-splash');
+  const chatSuggestions   = document.getElementById('chat-suggestions');
+  const suggestionAdd     = document.getElementById('suggestion-add');
+  const suggestionSuggest = document.getElementById('suggestion-suggest');
+  const chatMessages      = document.getElementById('chat-messages');
   const chatInput    = document.getElementById('chat-input');
   const chatSend     = document.getElementById('chat-send');
   const chatVoice    = document.getElementById('chat-voice');
@@ -38,6 +41,7 @@
   let currentMode = 'chat';
   let chatHistory = [];
   let sending = false;
+  let splashCollapsed = false;
   let activeFilter = 'active';
   let activeSort = 'urgency';
   let sortAsc = false;
@@ -63,6 +67,14 @@
     localStorage.setItem('zen-top-tasks', toggleTop.checked);
     refreshTopTasks();
   });
+
+  // --- Splash collapse ---
+  function collapseSplash() {
+    if (splashCollapsed) return;
+    splashCollapsed = true;
+    chatSplash.classList.add('collapsed');
+    chatSuggestions.style.display = 'none';
+  }
 
   // --- View switching ---
   function showView(name) {
@@ -168,6 +180,7 @@
     const text = chatInput.value.trim();
     if (!text || sending) return;
 
+    collapseSplash();
     sending = true;
     chatInput.value = '';
     chatInput.disabled = true;
@@ -209,6 +222,19 @@
   });
 
   chatSend.addEventListener('click', sendMessage);
+
+  // Suggestion buttons
+  suggestionAdd.addEventListener('click', () => {
+    collapseSplash();
+    chatInput.placeholder = "Tell me what you need to do \u2014 deadlines, urgency, details \u2014 I'll handle the rest!";
+    setTimeout(() => chatInput.focus(), 50);
+  });
+
+  suggestionSuggest.addEventListener('click', () => {
+    collapseSplash();
+    chatInput.value = 'What should I do now?';
+    sendMessage();
+  });
 
   // Voice
   if (Voice.supported) {
