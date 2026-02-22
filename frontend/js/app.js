@@ -232,7 +232,7 @@
 
   suggestionSuggest.addEventListener('click', () => {
     collapseSplash();
-    chatInput.value = 'What should I do now?';
+    chatInput.value = 'Give me a task to do!';
     sendMessage();
   });
 
